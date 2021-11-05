@@ -125,8 +125,8 @@ int main(int argc, char *argv[]) {
 
     Lx = Ly = 60;    //network size
     h = Ly * 0.86602540378443864676 * (1 + eps);   //height after axial extension
-    pbond = 0.6;   //bond existence probability
-    kappa = 1e-3;  //bending stiffness
+    pbond = 1.0;   //bond existence probability
+    kappa = 1e16;  //bending stiffness
     mu = 1;
     Numcycle = 1;
     totalnum = 0;    //total number of adhesion site
