@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
 
     //------------------------------------
     step = 30;
-    a = 4;
+    a = 6;
     b = 4;
     N = 4 * (floor(a) + 1) * (floor(b) + 1);
     kp = 1e-2;
@@ -125,10 +125,10 @@ int main(int argc, char *argv[]) {
 
     Lx = Ly = 60;    //network size
     h = Ly * 0.86602540378443864676 * (1 + eps);   //height after axial extension
-    pbond = 1.0;   //bond existence probability
+    pbond = 1e16;   //bond existence probability
     kappa = 1e16;  //bending stiffness
-    mu = 1;
-    Numcycle = 1;
+    mu = 1e16;
+    Numcycle = 10;
     totalnum = 0;    //total number of adhesion site
 //    totalnum2 = 0;
     //------------------------------------

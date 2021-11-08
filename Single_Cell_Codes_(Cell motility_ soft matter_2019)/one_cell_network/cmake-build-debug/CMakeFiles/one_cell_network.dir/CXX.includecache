@@ -1,0 +1,12 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/uday/Desktop/Second Life/Projects/Physics/Cell-motion/Single_Cell_Codes_(Cell motility_ soft matter_2019)/one_cell_network/main.cpp
+iostream
+-
+

@@ -101,7 +101,6 @@ void ConnectionsBuildFull(int **Gcon) {
             Kcon[2][G1] = 1;
         }
     }
-
     return;
 }
 
