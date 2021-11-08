@@ -1,7 +1,6 @@
 // Standard Libraries
 #include <iostream>
 #include <cmath>
-#include <cstdlib>
 #include <string>
 #include <fstream>
 #include <vector>
@@ -12,34 +11,41 @@
 // Custom Libraries
 #include "Headers/globals.hpp"
 #include "Headers/fileio.hpp"
-//#include "Headers/network.hpp"
-
-
-// Seed with a real random value, if available
-pcg_extras::seed_seq_from<std::random_device> seed_source;
-
-// Make a random number engine
-pcg32 rng(seed_source);
-
-// Uniform distribution
-double randDouble(double low, double high) {
-  std::uniform_real_distribution<double> dist(low, high);
-  return dist(rng);
-}
+#include "Headers/network.hpp"
+#include "Headers/cell.hpp"
 
 int main(int argc, char const *argv[]) {
 
+  //Input
+  std::string out, ext, seed;
+
+  /*std::cout << "Output filename: ";
+  std::cin >> out;
+  std::cout << "Extension: ";
+  std::cin >> ext;
+  std::cout << "Seed: ";
+  std::cin >> seed;*/
+  out = "t";
+  ext = "10";
+  seed = "0";
+
   //Output
-  out_dir = "Output/" + std::string(argv[1]);
+  out_dir = "Output/" + std::string(out);
 
   // Store Length of the lattice used
   std::cout << Ly << std::endl;
-  OutputLx(argv[2], argv[3]);
+  OutputLx(ext, seed);
 
   // Normal extension
-  eps = atof(argv[2]) * 0.20;
+  eps = std::stof(ext) * 0.20;
   h = Ly*0.86602540378443864676*(1+eps);
 
+  // Local Variables
+  iarray Gcon(3, 1+Lx*Ly);
+  darray Kcon(3, 1+Lx*Ly);
+  barray BoundaryX(3, 1+Lx*Ly);
+  barray BoundaryY(3, 1+Lx*Ly);
+  darray r(3, 2);
 
   // Displacement vector
   // xnew=xold+r[con][0], ynew=yold+r[con][1]
@@ -52,7 +58,6 @@ int main(int argc, char const *argv[]) {
   r(2,0) = 1;
   r(2,1) = 0;
 
-  // Local Variables
   dvect xm(2);               // Center of the cell
   xm[0] = double(Lx)*(3.0/4.0) - 10;
   xm[1] = double(Ly)/2 * sqrt(3)/2;
@@ -83,8 +88,28 @@ int main(int argc, char const *argv[]) {
 
   dvect x(nvariables);
 
-  std::cout << "Network Construction in Progres..." << std::endl;
+  std::cout << "Network Construction in Progress..." << std::endl;
+  BuildConnections(Gcon, Kcon, BoundaryX, BoundaryY);
+  std::cout << "Diluting the network..." << std::endl;
+  NetworkDilute(Gcon, 6*pbond);
 
+  std::cout << "Initializing the system..." << std::endl;
+  // Initialize all the variables
+  CrossLinks(x, r, xm, 0);
+  // Shear the network with input (0.0) and
+  // compress with eps
+  AffineShear(x, 0.0);
+
+  // temporary variables
+  double Emin;
+  int it;
+
+  // Place the cell on the lattice
+  totalnum = adhesion_site(x, xm, theta);
+
+  // initialize the system and
+  // consider cell contraction caused by non-zero phase
+  contraction(Adhesion, theta, phase);
 
   return 0;
 }

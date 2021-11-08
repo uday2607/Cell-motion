@@ -5,6 +5,16 @@
 #include <string>
 #include <eigen3/Eigen/Core>
 
+//Random Number Generators
+#include "../random/pcg_random.hpp"
+
+// Seed with a real random value, if available
+pcg_extras::seed_seq_from<std::random_device> seed_source;
+
+// Make a random number engine
+pcg32 rng(seed_source);
+
+// Type definitions
 typedef Eigen::ArrayXd dvect;
 typedef Eigen::ArrayXXd darray;
 typedef Eigen::ArrayXf fvect;
@@ -107,10 +117,18 @@ darray Adhesion0(N+1, 2);
 darray Adhesion_shift(N+1, 2);
 iarray AdhesionIndex(N+1, 2);
 ivect ifremove(N+1);
-iarray Gcon(3, 1+Lx*Ly);
-darray Kcon(3, 1+Lx*Ly);
-barray BoundaryX(3, 1+Lx*Ly);
-barray BoundaryY(3, 1+Lx*Ly);
-darray r(3, 2);
+
+// Global Random functions
+// Uniform distribution
+double randDouble(double low, double high) {
+  std::uniform_real_distribution<double> dist(low, high);
+  return dist(rng);
+}
+
+// Uniform integer distribution
+int randInt(int low, int high) {
+  std::uniform_int_distribution<int> dist(low, high);
+  return dist(rng);
+}
 
 #endif
