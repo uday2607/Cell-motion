@@ -109,6 +109,3 @@ void frprmn(double p[], int n, double ftol, int *iter, double *fret,
 	FREEALL
 	return;
 }
-
-
-

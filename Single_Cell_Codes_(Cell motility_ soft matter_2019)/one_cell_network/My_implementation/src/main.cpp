@@ -1,18 +1,9 @@
-// Standard Libraries
-#include <iostream>
-#include <cmath>
-#include <string>
-#include <fstream>
-#include <vector>
-#include <random>
-#include <eigen3/Eigen/Core>
-#include "random/pcg_random.hpp"
-
 // Custom Libraries
 #include "Headers/globals.hpp"
 #include "Headers/fileio.hpp"
 #include "Headers/network.hpp"
 #include "Headers/cell.hpp"
+#include "Headers/energy_grad.hpp"
 
 int main(int argc, char const *argv[]) {
 

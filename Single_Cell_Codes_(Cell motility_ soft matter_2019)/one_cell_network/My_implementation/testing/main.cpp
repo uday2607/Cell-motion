@@ -1,35 +1,37 @@
-#include <iostream>
-#include <cmath>
-#include <string>
-#include <fstream>
+#include <algorithm>
 #include <vector>
-#include <random>
-#include <eigen3/Eigen/Core>
+#include <iostream>
 #include <eigen3/Eigen/Dense>
-#include "../src/random/pcg_random.hpp"
+using namespace Eigen;
+using namespace std;
 
+class isEqual{
+  public:
+    vector<int>* ET;
+    double E;
+    isEqual(vector<int> *e, double a){ET = e; E = a;}
+    void operator()(double i){static int it = 0;
+                    if (i == E) ET->push_back(it); it++;}
+};
 
-// Seed with a real random value, if available
-pcg_extras::seed_seq_from<std::random_device> seed_source;
+class isGreater{
+  public:
+    vector<int>* ET;
+    double E;
+    isGreater(vector<int> *e, double a){ET = e; E = a;}
+    void operator()(double i){static int it = 0;
+                    if (i > E) ET->push_back(it); it++;}
+};
 
-// Make a random number engine
-pcg32 rng(seed_source);
-
-// Typedef
-typedef Eigen::ArrayXd dvect;
-typedef Eigen::ArrayXXd darray;
-typedef Eigen::ArrayXf fvect;
-typedef Eigen::ArrayXXf farray;
-typedef Eigen::ArrayXi ivect;
-typedef Eigen::ArrayXXi iarray;
-typedef Eigen::Array<bool,Eigen::Dynamic,1> bvect;
-typedef Eigen::Array<bool,Eigen::Dynamic,Eigen::Dynamic> barray;
-
-int main(int argc, char const *argv[]) {
-
-  darray r(3, 2);
-  r = darray::Zero(3,2);
-  r(1, 1) = 2;
-  std::cout << r(2, 1) << std::endl;
-  return 0;
+int main(int argc,char **argv){
+    ArrayXd P = ArrayXd::Random(20);
+    vector<int> GT;
+    for_each(&P(1),&P(10),isGreater(&GT, 0.0));
+    cout<<P<<endl;
+    for(int i=0;i<GT.size();++i)cout<<GT[i]<<" ";
+    cout << endl;
+    Map<ArrayXi> H(&GT[0], GT.size());;
+    ArrayXd U = P(seq(1, 10))(H);
+    cout<<U<<endl;
+    return 0;
 }
