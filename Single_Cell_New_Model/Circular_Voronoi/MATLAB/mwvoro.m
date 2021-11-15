@@ -6,24 +6,24 @@
 % Copyright (c) 2009
 % Martin Bock. All rights reserved.
 %
-% Redistribution and use in source and binary forms, with or without 
+% Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions are met:
 %
 % 1. Redistributions of source code must retain the above copyright notice,
 %    this list of conditions and the following disclaimer.
 % 2. Redistributions in binary form must reproduce the above copyright notice,
-%    this list of conditions and the following disclaimer in the documentation 
+%    this list of conditions and the following disclaimer in the documentation
 %    and/or other materials provided with the distribution.
 %
-% THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED 
-% WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF 
-% MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO 
-% EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
-% SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, 
-% PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; 
-% OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
-% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
-% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
+% THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+% WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+% MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+% EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+% SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+% PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+% OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+% WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 % ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -206,7 +206,7 @@ for m = 1:pm % loop over pairs
 
   thij = atan2( dy, dx );
   if abs( w(i)-w(j) ) < mindist
-    % direction of straight line starting from pair-local origin 
+    % direction of straight line starting from pair-local origin
     % (x0,y0) given by (-dy,dx) in global coords
     vdist = [ dx, dy ];  % record orientation of pair
     udist = vdist/sqrt( vdist*vdist' );
@@ -232,7 +232,7 @@ end % loop over pairs
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% determine tripels of overlapping cells and vertices 
+%%% determine tripels of overlapping cells and vertices
 for m = 1:pm % loop over pairs m
   for mm = m+1:pm % loop over pairs mm
     % due to sortedness comparing these indices is sufficient
@@ -299,9 +299,9 @@ end % loop over pairs m
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% calculate pseudo-vertices of cell pairs
-%%% Due to limiting the extension of cells up to the maximal 
+%%% Due to limiting the extension of cells up to the maximal
 %%% generalized distance Pmax, for each overlapping cell pair there
-%%% appear two additional pseudo-vertices given by the intersection 
+%%% appear two additional pseudo-vertices given by the intersection
 %%% of both cell's Pmax-spheres.
 for m = 1:pm % loop over pairs
   i = p2c(m,1);
@@ -376,7 +376,7 @@ for m = 1:pm % loop over pairs
     end
     % The artificial u-vertex is needed to decide
     % wether the arc is to the left or right of Mij.
-    % By separating at the critical angle theta = +/- pi 
+    % By separating at the critical angle theta = +/- pi
     % (think atan2), all angle ranges are contiguous.
     % Later on this thingie shall be deleted, unless it forms
     % the only vertex pair of the arc, like in digesting systems.
@@ -454,7 +454,7 @@ for m = 1:pm % loop over pairs
     if bbreak == 1 % disregard vertex
       continue;
     else % associate vertex
-      if isnan(Rij) 
+      if isnan(Rij)
         if vtyp == 0  ||  vtyp == 1
           vdist = vrtx - [x(i),y(i)];
           vcl(no,1) = atan2( vdist(2), vdist(1) );
@@ -469,7 +469,7 @@ for m = 1:pm % loop over pairs
       vl(vlm,:) = vcl(no,:);
     end
   end
-  
+
 
   % remove multiply appearing vertices for degenerate case
   if mod(vlm,2) ~= 0
@@ -607,7 +607,7 @@ for i = 1:cm
     posj = [x(j),y(j)];
     vdij = posi - posj;
     dij  = sqrt( vdij*vdij' );
-    if Ri-Rj > dij % cell i digesting cell j 
+    if Ri-Rj > dij % cell i digesting cell j
       numdig = numdig + 1;
     end
     if alc(11) == 0 || alc(12) == 0 % consider only arcs w/ wertices
@@ -685,4 +685,3 @@ for i = 1:cm
     mc(mcm) = i;
   end
 end
-
