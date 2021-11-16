@@ -28,3 +28,5 @@ typedef Eigen::ArrayXi ivect;
 typedef Eigen::ArrayXXi iarray;
 typedef Eigen::Array<bool,Eigen::Dynamic,1> bvect;
 typedef Eigen::Array<bool,Eigen::Dynamic,Eigen::Dynamic> barray;
+
+#endif
