@@ -1,4 +1,5 @@
 from matplotlib import pyplot as plt
+import matplotlib.patches as patches
 from shapely.geometry.point import Point
 from shapely import affinity
 from scipy.spatial import Voronoi
@@ -24,19 +25,15 @@ def inNet(L, a, b, x, y, theta):
     # Check if the cell is in the lattice
     # by checking if the cells are on the same side
     # of the lattice line segments
-    if not (((p1[1] < math.sqrt(3)*p1[0]) and
-        (p2[1] < math.sqrt(3)*p2[0]) and
-        (p3[1] < math.sqrt(3)*p3[0]) and
-        (p4[1] < math.sqrt(3)*p4[0]))):
+    if not ((p1[0] > 0) and (p2[0] > 0) and
+        (p3[0] > 0) and (p4[0] > 0)):
 
         # push x-coordinate by a
         x = x + a
         flag = 0
 
-    if not (((p1[1] > math.sqrt(3)*p1[0] - 2*L) and
-        (p2[1] > math.sqrt(3)*p2[0] - 2*L) and
-        (p3[1] > math.sqrt(3)*p3[0] - 2*L) and
-        (p4[1] > math.sqrt(3)*p4[0] - 2*L))):
+    if not ((p1[0] <  L) and (p2[0] <  L) and
+        (p3[0] <  L) and (p4[0] <  L)):
 
         # push x-coordinate by a
         x = x - a
@@ -100,28 +97,19 @@ def create_ellipse(center, lengths, angle=0):
     ellr = affinity.rotate(ell, angle)
     return ellr
 
-L = 30
+L = 60
 a = 3
 b = 2
 N = 10
 
 fig, ax = plt.subplots(subplot_kw={'aspect': 'equal'})
 
-points = np.zeros((L, L, 2))
-for i in range(L):
-    for j in range(L):
-        points[i][j][0] = (2*i + j)*np.sqrt(1/3)
-        points[i][j][1] = j
-
-        ax.scatter(points[i][j][0], points[i][j][1], c="blue")
-
 cell_coords = []
 i = 0
 while i < N:
     print(i)
-    x, y, theta = np.array([np.random.uniform(a, L-a),
-                  np.random.uniform(b, L-b), np.random.uniform(0, 360)])
-    x = (2*x + y)/math.sqrt(3)
+    x, y, theta = np.array([np.random.uniform(0, L),
+                  np.random.uniform(0, L), np.random.uniform(0, 360)])
 
     # push the cell into the net
     flag = 0
@@ -138,5 +126,8 @@ for e in ells:
     verts = np.array(e.exterior.coords.xy)
     patch = Polygon(verts.T, color = 'red', alpha = 0.5)
     ax.add_patch(patch)
+
+ax.set_xlim([0, L])
+ax.set_ylim([0, L])
 
 plt.show()

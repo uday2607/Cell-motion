@@ -18,6 +18,24 @@ int randInt(int low, int high) {
   return dist(rng);
 }
 
+// Round off Function
+double round_up(double value, int decimal_places) {
+    const double multiplier = std::pow(10.0, decimal_places);
+    return std::ceil(value * multiplier) / multiplier;
+}
+
+// Search functions for Eigen vectors
+int Search_dvect_int(dvect vect, int x) {
+
+  for (int i = 0; i < vect.size(); i++) {
+    if (vect(i) == x) {
+      return i;
+    }
+  }
+  
+  return -1;
+}
+
 // Comparision functions
 class isGreaterDouble{
   public:

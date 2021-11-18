@@ -3,6 +3,7 @@
 #include "Headers/params.hpp"
 #include "Headers/cell.hpp"
 #include "Headers/network.hpp"
+#include "Headers/adhesion.hpp"
 
 int main(int argc, char const *argv[]) {
 
@@ -12,28 +13,21 @@ int main(int argc, char const *argv[]) {
   b = 2;
   int Ncells = 10;
   int nol = 32;
-  int N = 32;
-
-  // Important Variables
-  nvariables = 1 + 2*Lx*Ly + 3*Ncells;
-  dvect x(nvariables);
+  int N = 4*(floor(a)+1)*(floor(b)+1);
 
   // Initialize the network
   Network net (Lx, Ly);
-  net.BuildNetwork();
 
   // Intialize the Cell System
   Cells cell_sys (Ncells, Lx, Ly, a, b,
                   nol, N);
 
-  for (auto cell : cell_sys.cells) {
-    std::cout << cell.index << "\n";
-  }
+  // Create adhesion sites
+  Adhesion_sites(cell_sys, net);
 
-  for (int i = 0; i < Ncells;  i++) {
-    delete &cell_sys.cells[i];
+  for (auto cell : cell_sys.cells) {
+    std::cout << cell.Adhesion << "\n";
   }
-  cell_sys.cells.clear();
 
   return 0;
 }
