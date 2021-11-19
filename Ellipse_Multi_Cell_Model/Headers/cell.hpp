@@ -62,6 +62,7 @@ class Cell {
     double x, y, theta;
     darray Adhesion, Adhesion0;
     ivect Overlap;
+    bool Contract;
     Cell() {};
 };
 
@@ -69,15 +70,13 @@ class Cell {
 class Cells {
   public:
     int Ncells;
-    int cur_index = -1;
-    int cur_phase = 0;
     int a, b, Nol, Nadh, Lx, Ly;
     std::vector<Cell> cells;
     Cells(int, int, int, double,
           double, int, int);
     bool noCollision(std::vector<Cell>, double, double,
                     double, double, double);
-    Contraction(double, double, double, double);
+    Contraction(double, double);
 };
 
 // Check if two ellipses are intersecting
@@ -86,7 +85,7 @@ bool Cells::noCollision(std::vector<Cell> cells, double a, double b,
 
 
     // temporary variables
-    int NUM = 10000;
+    int NUM = 1000;
     double x1, y1, theta1, a1, b1;
     double xi, yi;
 
@@ -100,6 +99,12 @@ bool Cells::noCollision(std::vector<Cell> cells, double a, double b,
     ell1(Eigen::seqN(0, NUM), 1) = y + a*cos(theta)*phi.sin()
                                      - b*sin(theta)*phi.cos();
 
+    // Construct the polygon
+    polygon_type poly1;
+    for (int i = 0; i < N; i++) {
+      poly1.push_back(point_type({ell1(i, 0), ell1(i, 1)}));
+    }
+
     for (auto cell : cells) {
       x1 = cell.x;
       y1 = cell.y;
@@ -107,25 +112,26 @@ bool Cells::noCollision(std::vector<Cell> cells, double a, double b,
       a1 = cell.a;
       b1 = cell.b;
 
+      // Ellipse 2
       ell2(Eigen::seqN(0,NUM),0) = x1 + a1*cos(theta1)*phi.cos()
                                       - b1*sin(theta1)*phi.sin();
       ell2(Eigen::seqN(0,NUM),1) = y1 + a1*cos(theta1)*phi.sin()
                                       - b1*sin(theta1)*phi.cos();
 
-      for (int i = 0; i < NUM; i++){
-        xi = ell1(i, 0);
-        yi = ell1(i, 1);
-        if (inellipse(x1, y1, theta1, a1, b1, xi, yi)) {
-          return false;
-        }
+      // Construct the polygon
+      polygon_type poly2;
+      for (int i = 0; i < N; i++) {
+        poly2.push_back(point_type({ell2(i, 0), ell2(i, 1)}));
       }
 
-      for (int i = 0; i < NUM; i++){
-        xi = ell2(i, 0);
-        yi = ell2(i, 1);
-        if (inellipse(x, y, theta, a, b, xi, yi)) {
-          return false;
-        }
+      // Check the intersection
+      multi_line_type intersection;
+      std::deque<polygon_type> output;
+      bool ret = intersection(poly1, poly2, output);
+
+      // If they intersect
+      if (ret) {
+        return false
       }
     }
 
@@ -147,7 +153,6 @@ Cells::Cells(int ncells, int lx, int ly,
   // temp variables
   int i = 0;
   double x, y, theta;
-  double sqrt_inv_t = 1/sqrt(3);
 
   while (i < Ncells) {
 
@@ -168,9 +173,10 @@ Cells::Cells(int ncells, int lx, int ly,
       cells[i].index = i+1;
       cells[i].x, cells[i].y = x, y;
       cells[i].theta = theta;
-      cells[i].Adhesion = -darray::Ones(N, 2);
-      cells[i].Adhesion0 = -darray::Ones(N, 2);
-      cells[i].Overlap = -ivect::Ones(N);
+      cells[i].Adhesion = -1*darray::Ones(N, 2);
+      cells[i].Adhesion0 = -1*darray::Ones(N, 2);
+      cells[i].Overlap = -1*ivect::Ones(N);
+      cells[i].Contract = true;
       i = i + 1;
     }
   }
@@ -199,6 +205,12 @@ void CheckOverlap(Cell &cell, std::vector<cell> &cells) {
   ell1(Eigen::seqN(0, NUM), 1) = y + a*cos(theta)*phi.sin()
                                    - b*sin(theta)*phi.cos();
 
+  // Construct the polygon
+  polygon_type poly1;
+  for (int i = 0; i < N; i++) {
+    poly1.push_back(point_type({ell1(i, 0), ell1(i, 1)}));
+  }
+
   for (int i = 1; i <= cells.size();  i++) {
 
     if (i == index+1) {
@@ -216,74 +228,73 @@ void CheckOverlap(Cell &cell, std::vector<cell> &cells) {
     ell2(Eigen::seqN(0,NUM),1) = y1 + a1*cos(theta1)*phi.sin()
                                     - b1*sin(theta1)*phi.cos();
 
-    for (int i = 0; i < NUM; i++){
-      xi = ell1(i, 0);
-      yi = ell1(i, 1);
-      if (inellipse(x1, y1, theta1, a1, b1, xi, yi)) {
-        ind = Search_ivect_int(cell.Overlap, -1);
-        cell.Overlap[ind] = cell[i].index;
-        ind = Search_ivect_int(cell[i].Overlap, -1);
-        cell[i].Overlap[ind] = index;
-      }
+    // Construct the polygon
+    polygon_type poly2;
+    for (int i = 0; i < N; i++) {
+      poly2.push_back(point_type({ell2(i, 0), ell2(i, 1)}));
     }
 
-    for (int i = 0; i < NUM; i++){
-      xi = ell2(i, 0);
-      yi = ell2(i, 1);
-      if (inellipse(x, y, theta, a, b, xi, yi)) {
-        ind = Search_ivect_int(cell.Overlap, -1);
-        cell.Overlap[ind] = cell[i].index;
-        ind = Search_ivect_int(cell[i].Overlap, -1);
-        cell[i].Overlap[ind] = index;
-      }
+    // Check the intersection
+    multi_line_type intersection;
+    std::deque<polygon_type> output;
+    bool ret = intersection(poly1, poly2, output);
+
+    // If they intersect
+    if (ret) {
+      ind = Search_ivect_int(cells[i].Overlap, -1);
+      cells[i].Overlap[ind] = index;
+      ind = Search_ivect_int(cell.Overlap, -1);
+      cell.Overlap[ind] = index;
     }
   }
 }
 
 // Cell Contraction
-void Cells::Contraction(double lambda, double dt, double tau,
-                        double step) {
+void Cells::Contraction(double dt, double step) {
 
   // temporary variables
-  double x, y, c;
-  Cell temp_cell;
+  double x, y, c, E;
 
-  // Check if any cell is in contraction phase
-  if (cur_index == -1) {
-    // Start a new contraction
-    cur_phase = 1;
-    cur_index = randInt(0, Ncells);
-    temp_cell = cells[cur_index];
-
-    c = lambda*dt/tau*cur_phase;
-
+  // Contract every cell
+  for (auto cell : cells) {
     // Check if the cell is overlapping with any
     // other cell
-    CheckOverlap(temp_cell, cells);
-    if ((temp_cell.Overlap == -1).all()) {
-      // Shift Focal Adhesions
+    CheckOverlap(cell, cells);
+    if ((cell.Overlap == -1).all()) {
+      // Cell doesn't overlap
+      // Change semi major axes
+      cell.a = cell.a*(1 - lambda*dt/tau);
+
+      // Shift Focal Adhesions normally
+      c = lambda*dt/tau;
       for (int i = 0; i < Nadh; i++) {
         // Check if Adhesion exists
-        if (temp_cell.Adhesion(i,0) != -1) {
-          x = temp_cell.Adhesion(i,0);
-          y = temp_cell.Adhesion(i,1);
+        if (cell.Adhesion(i,0) != -1) {
+          x = cell.Adhesion(i,0);
+          y = cell.Adhesion(i,1);
 
-          temp_cell.Adhesion(i,0) = x - c*pow(cos(temp_cell.theta), 2)*x
-                                    - c*cos(temp_cell.theta)
-                                       *sin(temp_cell.theta)*y;
-          temp_cell.Adhesion(i,1) = y - c*pow(sin(temp_cell.theta), 2)*y
-                                    - c*cos(temp_cell.theta)
-                                       *sin(temp_cell.theta)*x;
+          cell.Adhesion(i,0) = x - c*pow(cos(cell.theta), 2)*x
+                                    - c*cos(cell.theta)
+                                       *sin(cell.theta)*y;
+          cell.Adhesion(i,1) = y - c*pow(sin(cell.theta), 2)*y
+                                    - c*cos(cell.theta)
+                                       *sin(cell.theta)*x;
         }
       }
+
+      // Check if the cell semi major axes reached it's min
+      // value
+      if (cell.a <= lambda*a) {
+        cell.Contract = false;
+      }
     } else {
-      
+
+      // The cell is overlapping with other cell
+      // Calculate the tension created by other cells
+      // Along the major axes direction
+
+
     }
-
-    cells[cur_index] = temp_cell;
-
-  } else {
-
   }
 
 }
