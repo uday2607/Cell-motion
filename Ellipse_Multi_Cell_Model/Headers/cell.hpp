@@ -83,58 +83,21 @@ class Cells {
 bool Cells::noCollision(std::vector<Cell> cells, double a, double b,
              double x, double y, double theta) {
 
-
-    // temporary variables
-    int NUM = 1000;
     double x1, y1, theta1, a1, b1;
-    double xi, yi;
-
-    dvect phi(NUM);
-    darray ell1(NUM, 2);
-    darray ell2(NUM, 2);
-
-    // Ellipse 1
-    ell1(Eigen::seqN(0, NUM), 0) = x + a*cos(theta)*phi.cos()
-                                     - b*sin(theta)*phi.sin();
-    ell1(Eigen::seqN(0, NUM), 1) = y + a*cos(theta)*phi.sin()
-                                     - b*sin(theta)*phi.cos();
-
-    // Construct the polygon
-    polygon_type poly1;
-    for (int i = 0; i < N; i++) {
-      poly1.push_back(point_type({ell1(i, 0), ell1(i, 1)}));
-    }
 
     for (auto cell : cells) {
-      x1 = cell.x;
-      y1 = cell.y;
-      theta1 = cell.theta;
-      a1 = cell.a;
-      b1 = cell.b;
 
       // Ellipse 2
-      ell2(Eigen::seqN(0,NUM),0) = x1 + a1*cos(theta1)*phi.cos()
-                                      - b1*sin(theta1)*phi.sin();
-      ell2(Eigen::seqN(0,NUM),1) = y1 + a1*cos(theta1)*phi.sin()
-                                      - b1*sin(theta1)*phi.cos();
-
-      // Construct the polygon
-      polygon_type poly2;
-      for (int i = 0; i < N; i++) {
-        poly2.push_back(point_type({ell2(i, 0), ell2(i, 1)}));
-      }
-
-      // Check the intersection
-      multi_line_type intersection;
-      std::deque<polygon_type> output;
-      bool ret = intersection(poly1, poly2, output);
+      x1, y1 = cell.x, cell.y;
+      theta1 = cell.theta;
+      a1, b1 = cell.a, cell.b;
 
       // If they intersect
-      if (ret) {
-        return false
+      if (ellipse_intersects(a, b, x, y, theta,
+                             a1, b1, x1, y1, theta1)) {
+        return false;
       }
     }
-
     return true;
 }
 
@@ -183,10 +146,10 @@ Cells::Cells(int ncells, int lx, int ly,
 }
 
 // Check if a cell overlaps with any other cell
-void CheckOverlap(Cell &cell, std::vector<cell> &cells) {
+void CheckOverlap(Cell &cell, std::vector<Cell> &cells) {
 
   // temporary variables
-  int NUM = 10000, index, ind;
+  int NUM = 1000, index, ind;
   double x, y, theta, a, b;
   double x1, y1, theta1, a1, b1;
   double xi, yi;
@@ -200,16 +163,6 @@ void CheckOverlap(Cell &cell, std::vector<cell> &cells) {
   theta = cell.theta;
   a, b = cell.a, cell.b;
   index = cell.index;
-  ell1(Eigen::seqN(0, NUM), 0) = x + a*cos(theta)*phi.cos()
-                                   - b*sin(theta)*phi.sin();
-  ell1(Eigen::seqN(0, NUM), 1) = y + a*cos(theta)*phi.sin()
-                                   - b*sin(theta)*phi.cos();
-
-  // Construct the polygon
-  polygon_type poly1;
-  for (int i = 0; i < N; i++) {
-    poly1.push_back(point_type({ell1(i, 0), ell1(i, 1)}));
-  }
 
   for (int i = 1; i <= cells.size();  i++) {
 
@@ -217,30 +170,14 @@ void CheckOverlap(Cell &cell, std::vector<cell> &cells) {
       continue;
     }
 
-    x1 = cells[i].x;
-    y1 = cells[i].y;
+    // Ellipse 2
+    x1, y1 = cells[i].x, cells[i].y;
     theta1 = cells[i].theta;
-    a1 = cells[i].a;
-    b1 = cells[i].b;
-
-    ell2(Eigen::seqN(0,NUM),0) = x1 + a1*cos(theta1)*phi.cos()
-                                    - b1*sin(theta1)*phi.sin();
-    ell2(Eigen::seqN(0,NUM),1) = y1 + a1*cos(theta1)*phi.sin()
-                                    - b1*sin(theta1)*phi.cos();
-
-    // Construct the polygon
-    polygon_type poly2;
-    for (int i = 0; i < N; i++) {
-      poly2.push_back(point_type({ell2(i, 0), ell2(i, 1)}));
-    }
-
-    // Check the intersection
-    multi_line_type intersection;
-    std::deque<polygon_type> output;
-    bool ret = intersection(poly1, poly2, output);
+    a1, b1 = cells[i].a, cells[i].b;
 
     // If they intersect
-    if (ret) {
+    if (ellipse_intersects(a, b, x, y, theta,
+                           a1, b1, x1, y1, theta1)) {
       ind = Search_ivect_int(cells[i].Overlap, -1);
       cells[i].Overlap[ind] = index;
       ind = Search_ivect_int(cell.Overlap, -1);

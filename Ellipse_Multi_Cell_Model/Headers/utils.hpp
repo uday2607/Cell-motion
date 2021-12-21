@@ -32,7 +32,18 @@ int Search_dvect_int(dvect vect, int x) {
       return i;
     }
   }
-  
+
+  return -1;
+}
+
+int Search_ivect_int(ivect vect, int x) {
+
+  for (int i = 0; i < vect.size(); i++) {
+    if (vect(i) == x) {
+      return i;
+    }
+  }
+
   return -1;
 }
 

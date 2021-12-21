@@ -8,19 +8,7 @@
 #include <vector>
 #include <algorithm>
 #include <random>
-
-// Boost libraries
-#include <boost/geometry/core/cs.hpp>
-#include <boost/geometry/geometries/point.hpp>
-#include <boost/geometry/geometries/ring.hpp>
-#include <boost/geometry/geometries/box.hpp>
-#include <boost/geometry/geometries/segment.hpp>
-#include <boost/geometry/geometries/linestring.hpp>
-#include <boost/geometry/multi/geometries/multi_point.hpp>
-#include <boost/geometry/multi/geometries/multi_linestring.hpp>
-#include <boost/geometry/geometry.hpp>
-#include <boost/geometry/geometries/geometries.hpp>
-#include <boost/geometry/algorithms/intersection.hpp>
+#include <bits/stdc++.h>
 
 // Eigen library
 #include <eigen3/Eigen/Core>
@@ -36,22 +24,13 @@ pcg32 rng(seed_source);
 
 // Type definitions
 // Eigen typedefs
-using Eigen::ArrayXd                                    = dvect;
-using Eigen::ArrayXXd                                   = darray;
-using Eigen::ArrayXf                                    = fvect;
-using Eigen::ArrayXXf                                   = farray;
-using Eigen::ArrayXi                                    = ivect;
-using Eigen::ArrayXXi                                   = iarray;
-using Eigen::Array<bool,Eigen::Dynamic,1>               = bvect;
-using Eigen::Array<bool,Eigen::Dynamic,Eigen::Dynamic>  = barray;
-
-// Boost typedefs
-using value_type       = double;
-using cs_type          = bg::cs::cartesian;
-using point_type       = bg::model::point<value_type, 2, cs_type>;
-using polygon_type     = bg::model::ring<point_type>;
-using line_string_type = bg::model::linestring<point_type>;
-using multi_line_type  = bg::model::multi_linestring<line_string_type>;
-using intersection     = bg:intersection;
+typedef Eigen::ArrayXd dvect;
+typedef Eigen::ArrayXXd darray;
+typedef Eigen::ArrayXf fvect;
+typedef Eigen::ArrayXXf farray;
+typedef Eigen::ArrayXi ivect;
+typedef Eigen::ArrayXXi iarray;
+typedef Eigen::Array<bool,Eigen::Dynamic,1> bvect;
+typedef Eigen::Array<bool,Eigen::Dynamic,Eigen::Dynamic> barray;
 
 #endif
