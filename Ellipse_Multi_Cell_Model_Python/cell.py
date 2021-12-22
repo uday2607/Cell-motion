@@ -35,7 +35,7 @@ def random_cells(L, a, b, Num, rng):
     cells = np.zeros(Num*3)
     # a b theta phase
     cparams = np.zeros(Num*4)
-    Ovlaps = np.zeros((Num, Num)) - 1
+    Ovlaps = np.zeros((Num, Num)) - 1e8
 
     ind = 0
     while (ind < Num):
@@ -55,11 +55,13 @@ def find_overlaps(cells, cparams, Ovlaps):
 
     for i in range(cells.shape[0]//3):
         ell_i = create_ellipse((cells[3*i],cells[3*i+1]), (
-                                cparams[4*i],cparams[4*i+1]), cells[3*i+2])
+                                cparams[4*i],cparams[4*i+1]), cparams[4*i+2])
         for j in range(i+1, cells.shape[0]//3):
             ell_j = create_ellipse((cells[3*j],cells[3*j+1]), (
-                                    cparams[4*j],cparams[4*j+1]), cells[3*j+2])
+                                    cparams[4*j],cparams[4*j+1]), cparams[4*j+2])
 
             if ell_i.boundary.intersects(ell_j.boundary):
-                Ovlaps[i, j] = 1
-                Ovlaps[j, i] = 1
+                Ovlaps[i][j] = 1
+                Ovlaps[j][i] = 1
+
+    return Ovlaps

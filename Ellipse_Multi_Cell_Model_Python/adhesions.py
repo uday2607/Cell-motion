@@ -4,27 +4,23 @@ from energy import *
 def random_adhesions(L, a, b, cells, cparams,
                     Nadh, k_plus, dt, rng):
 
-    Adh = np.zeros((cells.shape[0]//3, Nadh, 2)) - 1
-    Adh0 = np.zeros((cells.shape[0]//3, Nadh, 2)) - 1
+    Adh = np.zeros((cells.shape[0]//3, Nadh, 2)) - 1e8
+    Adh0 = np.zeros((cells.shape[0]//3, Nadh, 2)) - 1e8
 
     for ind in range(cells.shape[0]//3):
         n = 2
         #Front and back points must be connected
         #front
-        x, y = a, 0.0
-        xp = (x*cos(pi/180*cparams[4*ind+2]) +
-                y*sin(pi/180*cparams[4*ind+2]))
-        yp = (x*sin(pi/180*cparams[4*ind+2]) +
-                y*cos(pi/180*cparams[4*ind+2]))
+        x = a
+        xp = x*cos(pi/180*cparams[4*ind+2])
+        yp = x*sin(pi/180*cparams[4*ind+2])
         Adh0[ind, 0] = np.array([xp, yp]) + cells[3*ind:(3*ind+2)]
         Adh[ind, 0] = np.array([xp, yp])
 
         #back
-        x, y = -a, 0.0
-        xp = (x*cos(pi/180*cparams[4*ind+2]) +
-                y*sin(pi/180*cparams[4*ind+2]))
-        yp = (x*sin(pi/180*cparams[4*ind+2]) +
-                y*cos(pi/180*cparams[4*ind+2]))
+        x = -a
+        xp = x*cos(pi/180*cparams[4*ind+2])
+        yp = x*sin(pi/180*cparams[4*ind+2])
         Adh0[ind, 1] = np.array([xp, yp]) + cells[3*ind:(3*ind+2)]
         Adh[ind, 1] = np.array([xp, yp])
 
@@ -50,8 +46,8 @@ def random_adhesions(L, a, b, cells, cparams,
 
 def new_adhesion(cell, cp, Nadh, a, b, L, k_plus, dt, rng):
 
-    Adh = np.zeros((Nadh, 2)) - 1
-    Adh0 = np.zeros((Nadh, 2)) - 1
+    Adh = np.zeros((Nadh, 2)) - 1e8
+    Adh0 = np.zeros((Nadh, 2)) - 1e8
 
     #Front and back points must be connected
     #front
@@ -90,7 +86,7 @@ def new_adhesion(cell, cp, Nadh, a, b, L, k_plus, dt, rng):
 def rotation(cells, cparams, Adh):
 
     for i in range(cells.shape[0]//3):
-        ind = np.arange(Adh.shape[1])[np.all(Adh[i]==-1,axis=1)]
+        ind = np.arange(Adh.shape[1])[np.all(Adh[i]!=-1e8,axis=1)]
         x, y = Adh[i, ind, 0], Adh[i, ind, 1]
         dtheta = pi/180*cells[3*i+2]
 
@@ -109,12 +105,12 @@ def contraction(cells, cparams, Ovlaps, Adh, lamda, tau, dt, T_S, a, b,
 
     for i in range(cells.shape[0]//3):
         # If no cells overlap
-        if (np.all(Ovlaps[i] == -1)):
+        if (np.all(Ovlaps[i] == -1e8)):
              c = lamda*dt/tau
 
              # Update a
              cparams[4*i] = a*exp(-c*cparams[4*i+3])
-             ind = np.arange(Adh.shape[1])[np.all(Adh[i]==-1,axis=1)]
+             ind = np.arange(Adh.shape[1])[np.all(Adh[i]!=-1e8,axis=1)]
              x, y = Adh[i, ind, 0], Adh[i, ind, 1]
              theta = pi/180*cparams[4*i+2]
 
@@ -135,7 +131,7 @@ def contraction(cells, cparams, Ovlaps, Adh, lamda, tau, dt, T_S, a, b,
                 # Update a
                 cparams[4*i] = a*exp(-c*cparams[4*i+3])
 
-                ind = np.arange(Adh.shape[1])[np.all(Adh[i]==-1,axis=1)]
+                ind = np.arange(Adh.shape[1])[np.all(Adh[i]!=-1e8,axis=1)]
                 x, y = Adh[i, ind, 0], Adh[i, ind, 1]
                 theta = pi/180*cparams[4*i+2]
 
@@ -149,7 +145,7 @@ def contraction(cells, cparams, Ovlaps, Adh, lamda, tau, dt, T_S, a, b,
 
                 # Update a
                 cparams[4*i] = a*exp(-c*cparams[4*i+3])
-                ind = np.arange(Adh.shape[1])[np.all(Adh[i]==-1,axis=1)]
+                ind = np.arange(Adh.shape[1])[np.all(Adh[i]!=-1e8,axis=1)]
                 x, y = Adh[i, ind, 0], Adh[i, ind, 1]
                 theta = pi/180*cparams[4*i+2]
 
@@ -166,7 +162,7 @@ def contraction(cells, cparams, Ovlaps, Adh, lamda, tau, dt, T_S, a, b,
 
 def mature(cell, Adh, Adh0, cp, Nadh, k_s, fTh, dt, rng):
 
-    ind = np.arange(Adh.shape[0])[np.all(Adh ==-1,axis=1)]
+    ind = np.arange(Adh.shape[0])[np.all(Adh !=-1e8,axis=1)]
 
     for i in ind:
         dis = sqrt(np.sum((Adh[i]-Adh0[i])**2.))
@@ -180,19 +176,19 @@ def mature(cell, Adh, Adh0, cp, Nadh, k_s, fTh, dt, rng):
     return Adh, Adh0
 
 def detach(cell, cell0, Adh, Adh0, cp, cp0,
-            Nadh, k_b, k_f, k_s, alpha, dt, rng):
+            Nadh, k_b, k_f, k_s, alpha, a, dt, rng):
 
-    ind = np.arange(Adh.shape[0])[np.all(Adh ==-1,axis=1)]
+    ind = np.arange(Adh.shape[0])[np.all(Adh !=-1e8,axis=1)]
 
     for i in ind:
-        x0 = ((Adh0[i, 0] - cell0[i])*cos(cp0[2]) +
-              (Adh0[i, 1] - cell0[i+1])*sin(cp0[2]))
+        x0 = ((Adh0[i, 0] - cell0[0])*cos(cp0[2]) +
+              (Adh0[i, 1] - cell0[1])*sin(cp0[2]))
 
         #detachment rate
         k_x = k_b - (k_b - k_f)*(x0+a)/(2*a)
 
         dis = sqrt(np.sum((Adh[i]-Adh0[i])**2.))
-        off_rate = k_x*exp(alpha*dis/a*ks/0.1)
+        off_rate = k_x*exp(alpha*dis/a*k_s/0.1)
 
         #detach adhesion site
         if (rng.random() < off_rate*dt):

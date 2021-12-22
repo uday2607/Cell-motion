@@ -4,6 +4,7 @@ from shapely import affinity
 from shapely.ops import unary_union, polygonize
 from itertools import combinations
 from matplotlib.patches import Polygon
+from matplotlib import collections  as mc
 import numpy as np
 import math
 
@@ -17,10 +18,11 @@ def create_ellipse(center, lengths, angle=0):
     ellr = affinity.rotate(ell, angle)
     return ellr
 
-def plot_ellipses(cells, cparams, a, b, t):
+def plot_ellipses(cells, cparams, Adh, Adh0, a, b, t):
 
     ells_out = []
     ells_in = []
+    liness = []
     x_min = 0
     x_max = 0
     y_min = 0
@@ -43,19 +45,32 @@ def plot_ellipses(cells, cparams, a, b, t):
         if (y_max <= cells[3*i+1]):
             y_max = cells[3*i+1]
 
+        ind = np.arange(Adh.shape[1])[np.all(Adh[i]!=-1e8,axis=1)]
+
+        for n in ind:
+            x2, y2 = Adh[i, n, 0], Adh[i, n, 1]
+            x2 += cells[3*i]
+            y2 += cells[3*i+1]
+            liness.append([(x2, y2), (Adh0[i, n, 0], Adh0[i, n, 1])])
+
 
     fig, ax = plt.subplots(subplot_kw={'aspect': 'equal'})
-    ells_out = unary_union(ells_out)
+    #ells_out = unary_union(ells_out)
     for e in polygonize(ells_out):
         verts = np.array(e.exterior.coords.xy)
-        patch = Polygon(verts.T, color = 'blue', alpha = 0.5)
+        patch = Polygon(verts.T, facecolor = 'blue', alpha = 0.5, linestyle = "-",
+                        edgecolor="black", linewidth = 4)
         ax.add_patch(patch)
 
-    ells_in = unary_union(ells_in)
+    #ells_in = unary_union(ells_in)
     for e in polygonize(ells_in):
         verts = np.array(e.exterior.coords.xy)
         patch = Polygon(verts.T, color = 'red', alpha = 0.8)
         ax.add_patch(patch)
+
+
+    lc = mc.LineCollection(liness, colors="black", linewidths=0.5)
+    #ax.add_collection(lc)
 
     ax.set_xlim(-2*a+x_min, x_max+2*a)
     ax.set_ylim(-2*b+y_min, y_max+2*b)

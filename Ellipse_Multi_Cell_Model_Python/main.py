@@ -16,9 +16,9 @@ lamda = 0.4
 tau = 20
 T_S = 10
 k_s = 0.1
-k_out_out = 0.2
-k_in_out = 0.4
-k_in_in = 0.8
+k_out_out = 0.02
+k_in_out = 1000
+k_in_in = 10000
 fThreshold = 0.0005
 k_b = 0.02
 k_f = 0.005
@@ -36,13 +36,13 @@ Adh0, Adh = adhesions.random_adhesions(L, a, b, cells, cparams, Nadh,
 
 for t in range(4*tau):
 
+    #Find the overlap indices
+    Ovlaps = cell.find_overlaps(cells, cparams, Ovlaps)
+
     # Cells contract
     cparams, Adh = adhesions.contraction(cells, cparams, Ovlaps, Adh,
                           lamda, tau, dt, T_S, a, b,
                           k_out_out, k_in_out, k_in_in)
-
-    #Find the overlap indices
-    cell.find_overlaps(cells, cparams, Ovlaps)
 
     #minimize energy
     args = (cparams, Ovlaps, Adh, Adh0,
@@ -60,7 +60,6 @@ for t in range(4*tau):
     for num in range(Num):
         #cell extension
         if cparams[4*num] <= a_min:
-            print("tada")
             #reset phase
             cparams[4*num] = a
             cparams[4*num+3] = 0
@@ -86,6 +85,6 @@ for t in range(4*tau):
                                     Adh[num], Adh0[num],
                                     cparams[4*num:(4*num+3)],
                                     cparams0[4*num:(4*num+3)],
-                                    Nadh, k_b, k_f, k_s, alpha, dt, rng)
-    #plot_cells.plot_ellipses(cells, cparams, a, b, t)
-    print(Adh)
+                                    Nadh, k_b, k_f, k_s, alpha, a, dt, rng)
+    plot_cells.plot_ellipses(cells, cparams, Adh, Adh0, a, b, t)
+    print(t)
