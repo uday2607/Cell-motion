@@ -3,19 +3,27 @@ from cell import *
 from adhesions import *
 import numba as nb
 
-def adhesion_energy(cells, Adh, Adh0, k_s):
+def adhesion_energy(cells, num, Adh, Adh0, k_s):
+
+    ind = np.arange(Adh.shape[1])[np.all(Adh[num]!=-1e8,axis=1)]
+    dtheta = pi/180*cells[3*num+2]
+    fx = -((cos(dtheta)*Adh[num, ind, 0]-sin(dtheta)*Adh[num, ind, 1] +
+            cells[3*num] - Adh0[num, ind, 0]))
+    fy = -((sin(dtheta)*Adh[num, ind, 0]+cos(dtheta)*Adh[num, ind, 1] +
+            cells[3*num+1] - Adh0[num, ind, 1]))
+
+    ad_energy = 0.5*k_s*np.sum(fx**2 + fy**2)
+
+    return ad_energy
+
+
+def total_adhesion_energy(cells, Adh, Adh0, k_s):
 
     ad_energy = 0
 
     for i in range(cells.shape[0]//3):
-        ind = np.arange(Adh.shape[1])[np.all(Adh[i]!=-1e8,axis=1)]
-        dtheta = pi/180*cells[3*i+2]
-        fx = -((cos(dtheta)*Adh[i, ind, 0]-sin(dtheta)*Adh[i, ind, 1] +
-                cells[3*i] - Adh0[i, ind, 0]))
-        fy = -((sin(dtheta)*Adh[i, ind, 0]+cos(dtheta)*Adh[i, ind, 1] +
-                cells[3*i+1] - Adh0[i, ind, 1]))
 
-        ad_energy += 0.5*k_s*np.sum(fx**2 + fy**2)
+        ad_energy += adhesion_energy(cells, i, Adh, Adh0, k_s)
 
     return ad_energy
 
@@ -70,19 +78,19 @@ def compute_tension(cells, num, cparams, Ovlaps, k_out_out,
     cp = cparams.copy()
 
     #change a
-    cp[4*num] = 1.5*cparams[4*num]
+    cp[4*num] = 1.01*cparams[4*num]
     e1 = overlap_energy(cells, cp, num, Ovlaps,
                         k_out_out, k_in_out, k_in_in)
 
-    cp[4*num] = 0.5*cparams[4*num]
+    cp[4*num] = 0.99*cparams[4*num]
     e2 = overlap_energy(cells, cp, num, Ovlaps,
                         k_out_out, k_in_out, k_in_in)
 
-    return (e2 - e1)/cparams[4*num]
+    return (e2 - e1)/(0.02*cparams[4*num])
 
 def total_energy(cells, cparams, Ovlaps, Adh, Adh0,
                 k_s, k_out_out, k_in_out, k_in_in):
 
-    return (adhesion_energy(cells, Adh, Adh0, k_s) +
+    return (total_adhesion_energy(cells, Adh, Adh0, k_s) +
             total_oval_energy(cells, cparams, Ovlaps,
                                 k_out_out, k_in_out, k_in_in))

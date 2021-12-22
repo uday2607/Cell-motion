@@ -9,7 +9,7 @@ def create_ellipse(center, lengths, angle=0):
     https://gis.stackexchange.com/a/243462
     """
     circ = Point(center).buffer(1, resolution=1000)
-    ell = affinity.scale(circ, int(lengths[0]), int(lengths[1]))
+    ell = affinity.scale(circ, lengths[0], lengths[1])
     ellr = affinity.rotate(ell, angle)
     return ellr
 
@@ -51,7 +51,9 @@ def random_cells(L, a, b, Num, rng):
 
     return cells, cparams, Ovlaps
 
-def find_overlaps(cells, cparams, Ovlaps):
+def find_overlaps(cells, cparams, Ovlaps_):
+
+    Ovlaps = Ovlaps_.copy()
 
     for i in range(cells.shape[0]//3):
         ell_i = create_ellipse((cells[3*i],cells[3*i+1]), (

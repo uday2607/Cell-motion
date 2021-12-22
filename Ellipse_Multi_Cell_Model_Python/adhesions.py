@@ -28,7 +28,8 @@ def random_adhesions(L, a, b, cells, cparams,
             flag = 0
             if (rng.random() < k_plus*dt):
                 while flag == 0:
-                    x, y = rng.uniform(0, L, size=2)
+                    x = rng.uniform(-a, a)
+                    y = rng.uniform(-b, b)
 
                     if (x**2/a**2 + y**2/b**2 <= 1):
                         xp = (x*cos(pi/180*cparams[4*ind+2]) +
@@ -69,7 +70,8 @@ def new_adhesion(cell, cp, Nadh, a, b, L, k_plus, dt, rng):
         flag = 0
         if (rng.random() < k_plus*dt):
             while flag == 0:
-                x, y = rng.uniform(0, L, size=2)
+                x = rng.uniform(-a, a)
+                y = rng.uniform(-b, b)
 
                 if (x**2/a**2 + y**2/b**2 <= 1):
                     xp = (x*cos(pi/180*cp[2]) + y*sin(pi/180*cp[2]))
@@ -83,25 +85,33 @@ def new_adhesion(cell, cp, Nadh, a, b, L, k_plus, dt, rng):
 
     return Adh, Adh0
 
-def rotation(cells, cparams, Adh):
+def rotation(cells_, cparams_, Adh_):
+
+    cells = cells_.copy()
+    cparams = cparams_.copy()
+    Adh = Adh_.copy()
 
     for i in range(cells.shape[0]//3):
         ind = np.arange(Adh.shape[1])[np.all(Adh[i]!=-1e8,axis=1)]
-        x, y = Adh[i, ind, 0], Adh[i, ind, 1]
-        dtheta = pi/180*cells[3*i+2]
+        x, y = Adh_[i, ind, 0], Adh_[i, ind, 1]
+        dtheta = pi/180*cells_[3*i+2]
 
         #rotate all the adhesions
         Adh[i, ind, 0] = cos(dtheta)*x - sin(dtheta)*y
         Adh[i, ind, 1] = sin(dtheta)*x + cos(dtheta)*y
 
         #rotate theta
-        cparams[4*i+2] += cells[3*i+2]
+        cparams[4*i+2] += cells_[3*i+2]
         cells[3*i+2] = 0
 
     return cells, cparams, Adh
 
-def contraction(cells, cparams, Ovlaps, Adh, lamda, tau, dt, T_S, a, b,
-                k_out_out, k_in_out, k_in_in):
+def contraction(cells_, cparams_, Ovlaps, Adh_, lamda, tau, dt, T_S, a, b,
+                k_out_out, k_in_out, k_in_in, k_s):
+
+    cparams = cparams_.copy()
+    cells = cells_.copy()
+    Adh = Adh_.copy()
 
     for i in range(cells.shape[0]//3):
         # If no cells overlap
@@ -109,10 +119,10 @@ def contraction(cells, cparams, Ovlaps, Adh, lamda, tau, dt, T_S, a, b,
              c = lamda*dt/tau
 
              # Update a
-             cparams[4*i] = a*exp(-c*cparams[4*i+3])
+             cparams[4*i] = a*exp(-c*cparams_[4*i+3])
              ind = np.arange(Adh.shape[1])[np.all(Adh[i]!=-1e8,axis=1)]
-             x, y = Adh[i, ind, 0], Adh[i, ind, 1]
-             theta = pi/180*cparams[4*i+2]
+             x, y = Adh_[i, ind, 0], Adh_[i, ind, 1]
+             theta = pi/180*(cparams_[4*i+2]+cells_[3*i+2])
 
              Adh[i, ind, 0] = (x - c*cos(theta)*cos(theta)*x -
                                 c*sin(theta)*cos(theta)*y)
@@ -122,32 +132,32 @@ def contraction(cells, cparams, Ovlaps, Adh, lamda, tau, dt, T_S, a, b,
             #cells overlap
 
             #compute tension due to other cells
-            T = compute_tension(cells, i, cparams, Ovlaps,
+            T = compute_tension(cells_, i, cparams_, Ovlaps,
                                 k_out_out, k_in_out, k_in_in)
             #Tension is less than critical tension
             if (T < T_S):
                 c = lamda*dt*(1-T/T_S)/tau
 
                 # Update a
-                cparams[4*i] = a*exp(-c*cparams[4*i+3])
+                cparams[4*i] = a*exp(-c*cparams_[4*i+3])
 
                 ind = np.arange(Adh.shape[1])[np.all(Adh[i]!=-1e8,axis=1)]
                 x, y = Adh[i, ind, 0], Adh[i, ind, 1]
-                theta = pi/180*cparams[4*i+2]
+                theta = pi/180*(cparams_[4*i+2]+cells_[3*i+2])
 
-                Adh[i, ind, 0] = (x - c*cos(theta)*cos(theta)*x -
+                Adh_[i, ind, 0] = (x - c*cos(theta)*cos(theta)*x -
                                    c*sin(theta)*cos(theta)*y)
-                Adh[i, ind, 1] = (y - c*sin(theta)*cos(theta)*x -
+                Adh_[i, ind, 1] = (y - c*sin(theta)*cos(theta)*x -
                                    c*sin(theta)*sin(theta)*y)
             elif (T <= 0):
                 # negative tension means no stalling
                 c = lamda*dt/tau
 
                 # Update a
-                cparams[4*i] = a*exp(-c*cparams[4*i+3])
+                cparams[4*i] = a*exp(-c*cparams_[4*i+3])
                 ind = np.arange(Adh.shape[1])[np.all(Adh[i]!=-1e8,axis=1)]
-                x, y = Adh[i, ind, 0], Adh[i, ind, 1]
-                theta = pi/180*cparams[4*i+2]
+                x, y = Adh_[i, ind, 0], Adh_[i, ind, 1]
+                theta = pi/180*(cparams_[4*i+2]+cells_[3*i+2])
 
                 Adh[i, ind, 0] = (x - c*cos(theta)*cos(theta)*x -
                                    c*sin(theta)*cos(theta)*y)
@@ -170,15 +180,15 @@ def mature(cell, Adh, Adh0, cp, Nadh, k_s, fTh, dt, rng):
 
         #detach adhesion site
         if (rng.random() < off_rate*dt):
-            Adh[i] = -np.array([-1, -1])
-            Adh0[i] = -np.array([-1, -1])
+            Adh[i] = np.array([-1e8, -1e8])
+            Adh0[i] = np.array([-1e8, -1e8])
 
     return Adh, Adh0
 
 def detach(cell, cell0, Adh, Adh0, cp, cp0,
             Nadh, k_b, k_f, k_s, alpha, a, dt, rng):
 
-    ind = np.arange(Adh.shape[0])[np.all(Adh !=-1e8,axis=1)]
+    ind = np.arange(Adh.shape[0])[np.all(Adh!=-1e8,axis=1)]
 
     for i in ind:
         x0 = ((Adh0[i, 0] - cell0[0])*cos(cp0[2]) +
@@ -188,11 +198,11 @@ def detach(cell, cell0, Adh, Adh0, cp, cp0,
         k_x = k_b - (k_b - k_f)*(x0+a)/(2*a)
 
         dis = sqrt(np.sum((Adh[i]-Adh0[i])**2.))
-        off_rate = k_x*exp(alpha*dis/a*k_s/0.1)
+        off_rate = k_x*exp(alpha*dis*0.1/(4*a))
 
         #detach adhesion site
         if (rng.random() < off_rate*dt):
-            Adh[i] = -np.array([-1, -1])
-            Adh0[i] = -np.array([-1, -1])
+            Adh[i] = np.array([-1e8, -1e8])
+            Adh0[i] = np.array([-1e8, -1e8])
 
     return Adh, Adh0

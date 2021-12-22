@@ -14,7 +14,7 @@ def create_ellipse(center, lengths, angle=0):
     https://gis.stackexchange.com/a/243462
     """
     circ = Point(center).buffer(1, resolution=1000)
-    ell = affinity.scale(circ, int(lengths[0]), int(lengths[1]))
+    ell = affinity.scale(circ, lengths[0], lengths[1])
     ellr = affinity.rotate(ell, angle)
     return ellr
 
@@ -69,8 +69,8 @@ def plot_ellipses(cells, cparams, Adh, Adh0, a, b, t):
         ax.add_patch(patch)
 
 
-    lc = mc.LineCollection(liness, colors="black", linewidths=0.5)
-    #ax.add_collection(lc)
+    lc = mc.LineCollection(liness, colors="black", linewidths=2)
+    ax.add_collection(lc)
 
     ax.set_xlim(-2*a+x_min, x_max+2*a)
     ax.set_ylim(-2*b+y_min, y_max+2*b)

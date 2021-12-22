@@ -4,21 +4,22 @@ import energy
 from scipy.optimize import minimize
 import numpy as np
 import plot_cells
+import math
 
-a = 4
-b = 2
+a = 6
+b = 3
 L = 40
 Num = 2
-Nadh = 32
-k_plus = 0.4
+Nadh = 256
+k_plus = 0.5
 dt = 1
-lamda = 0.4
+lamda = 0.7
 tau = 30
 T_S = 10
-k_s = 0.1
-k_out_out = 0.02
-k_in_out = 1000
-k_in_in = 10000
+k_s = 0.4
+k_out_out = 0.002
+k_in_out = 10000
+k_in_in = 100000
 fThreshold = 0.0005
 k_b = 0.02
 k_f = 0.005
@@ -36,17 +37,32 @@ Adh0, Adh = adhesions.random_adhesions(L, a, b, cells, cparams, Nadh,
 
 for t in range(4*tau):
 
+    #plot in the beginning
+    plot_cells.plot_ellipses(cells, cparams, Adh, Adh0, a, b, t)
+    print(t, Adh)
+
     #Find the overlap indices
     Ovlaps = cell.find_overlaps(cells, cparams, Ovlaps)
 
     # Cells contract
     cparams, Adh = adhesions.contraction(cells, cparams, Ovlaps, Adh,
                           lamda, tau, dt, T_S, a, b,
-                          k_out_out, k_in_out, k_in_in)
+                          k_out_out, k_in_out, k_in_in, k_s)
 
     #minimize energy
     args = (cparams, Ovlaps, Adh, Adh0,
             k_s, k_out_out, k_in_out, k_in_in)
+
+    #find the bounds
+    bounds = []
+    for i in range(Num):
+        temp = abs(3*a*math.cos(math.pi*cparams0[4*i+2]/180))
+        bounds.append((cells0[3*i]-temp, cells0[3*i]+temp))
+        temp = abs(3*a*math.sin(math.pi*cparams0[4*i+2]/180))
+        bounds.append((cells0[3*i+1]-temp, cells0[3*i+1]+temp))
+        bounds.append((0, 360))
+    bounds = tuple(bounds)
+
     cells = minimize(energy.total_energy, cells, args=args,
                     method='L-BFGS-B').x
 
@@ -86,5 +102,3 @@ for t in range(4*tau):
                                     cparams[4*num:(4*num+3)],
                                     cparams0[4*num:(4*num+3)],
                                     Nadh, k_b, k_f, k_s, alpha, a, dt, rng)
-    plot_cells.plot_ellipses(cells, cparams, Adh, Adh0, a, b, t)
-    print(t)
