@@ -28,18 +28,22 @@ def overlap_energy(cells, cparams, num, Ovlaps,
     if np.any(Ovlaps[num] != -1e8):
 
         ell_i_out = create_ellipse((cells[3*num],cells[3*num+1]), (
-                        cparams[4*num],cparams[4*num+1]), cparams[4*num+2])
+                        cparams[4*num],cparams[4*num+1]),
+                        cparams[4*num+2]+cells[3*num+2])
         ell_i_in = create_ellipse((cells[3*num],cells[3*num+1]), (0.5*
-                        cparams[4*num],0.5*cparams[4*num+1]), cparams[4*num+2])
+                        cparams[4*num],0.5*cparams[4*num+1]),
+                        cparams[4*num+2]+cells[3*num+2])
 
         ind = np.arange(Ovlaps.shape[0])[Ovlaps[num] == 1]
 
         #for each cell, find the overlap energy
         for j in ind:
             ell_j_out = create_ellipse((cells[3*j],cells[3*j+1]), (
-                            cparams[4*j],cparams[4*j+1]), cparams[4*j+2])
+                            cparams[4*j],cparams[4*j+1]),
+                            cparams[4*j+2]+cells[3*j+2])
             ell_j_in = create_ellipse((cells[3*j],cells[3*j+1]), (0.5*
-                            cparams[4*j],0.5*cparams[4*j+1]), cparams[4*j+2])
+                            cparams[4*j],0.5*cparams[4*j+1]),
+                            cparams[4*j+2]+cells[3*j+2])
 
             #find the overlap area
             oval_energy -= 0.5*k_out_out*(ell_i_out.intersection(ell_j_out).area)
