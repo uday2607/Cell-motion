@@ -1,7 +1,7 @@
 from shapely.geometry.point import Point
 from shapely import affinity
 import numpy as np
-from math import sin, cos, pi, exp
+from math import sin, cos, pi, exp, sqrt
 
 def create_ellipse(center, lengths, angle=0):
     """
@@ -21,7 +21,8 @@ def noCollision(cells, ind, a, b, x, y, theta):
     ell1 = create_ellipse((x,y), (a,b), theta)
 
     for i in range(ind):
-        ell2 = create_ellipse((cell[3*ind:3*ind+2]), (a,b), cell[3*ind+2])
+        ell2 = create_ellipse((cells[3*ind:(3*ind+2)]), (a,b),
+                               cells[3*ind+2])
 
         if ell1.boundary.intersects(ell2.boundary):
             return False
@@ -30,10 +31,10 @@ def noCollision(cells, ind, a, b, x, y, theta):
 
 def random_cells(L, a, b, Num, rng):
 
-    # x y theta
+    # x y dtheta
     cells = np.zeros(Num*3)
-    # a b phase
-    cparams = np.zeros(Num*3)
+    # a b theta phase
+    cparams = np.zeros(Num*4)
     Ovlaps = np.zeros((Num, Num)) - 1
 
     ind = 0
@@ -44,8 +45,21 @@ def random_cells(L, a, b, Num, rng):
 
         # check for collisions
         if noCollision(cells, ind, a, b, x, y, theta):
-            cells[3*ind:3*ind+3] = np.array([x, y, theta])
-            cparams[3*ind:3*ind+3] = np.array([a, b, 0])
+            cells[3*ind:(3*ind+3)] = np.array([x, y, 0])
+            cparams[4*ind:(4*ind+4)] = np.array([a, b, theta, 0])
             ind += 1
 
     return cells, cparams, Ovlaps
+
+def find_overlaps(cells, cparams, Ovlaps):
+
+    for i in range(cells.shape[0]//3):
+        ell_i = create_ellipse((cells[3*i],cells[3*i+1]), (
+                                cparams[4*i],cparams[4*i+1]), cells[3*i+2])
+        for j in range(i+1, cells.shape[0]//3):
+            ell_j = create_ellipse((cells[3*j],cells[3*j+1]), (
+                                    cparams[4*j],cparams[4*j+1]), cells[3*j+2])
+
+            if ell_i.boundary.intersects(ell_j.boundary):
+                Ovlaps[i, j] = 1
+                Ovlaps[j, i] = 1
