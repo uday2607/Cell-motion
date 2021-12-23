@@ -205,17 +205,28 @@ def protrusion(cell, Adh, Adh0, cp, Nadh, a, b, L, k_plus, dt, rng):
 
         #check if any adhesions are inside the cell
         for i in ind:
-            x = ((Adh[i][0])*cos(pi/180*cp[2]) +
-                (Adh[i][1])*sin(pi/180*cp[2]) + cell0[0] - cell[0])
-            y = (-(Adh[i][0])*sin(pi/180*cp[2]) +
-                (Adh[i][1])*cos(pi/180*cp[2]) + cell0[1] - cell[1])
+            x = ((Adh[i][0]+cell0[0]-cell[0])*cos(pi/180*cp[2]) +
+                (Adh[i][1]+cell0[1]-cell[1])*sin(pi/180*cp[2]))
+            y = (-(Adh[i][0]+cell0[0]-cell[0])*sin(pi/180*cp[2]) +
+                (Adh[i][1]+cell0[1]-cell[1])*cos(pi/180*cp[2]))
 
             #out of cell
             if (x**2/a**2 + y**2/b**2 > 1):
                 Adh[i] = -np.array([1e8, 1e8])
                 Adh0[i] = -np.array([1e8, 1e8])
             else:
-                Adh[i] += -cell[:2] + cell0[:2]
+                Adh[i] += -(cell[:2] - cell0[:2]).copy()
+                x = ((Adh[i][0])*cos(pi/180*cp[2]) +
+                    (Adh[i][1])*sin(pi/180*cp[2]))
+                y = (-(Adh[i][0])*sin(pi/180*cp[2]) +
+                    (Adh[i][1])*cos(pi/180*cp[2]))
+
+                #out of cell
+                if (x**2/a**2 + y**2/b**2 > 1):
+                    if i in ind:
+                        print("Bruv")
+                    else:
+                        print("Whatt")
 
         #reevaluate which adhesions are not present in the cell
         indn = np.arange(Adh.shape[0])[np.all(Adh ==-1e8,axis=1)]
@@ -254,10 +265,6 @@ def protrusion(cell, Adh, Adh0, cp, Nadh, a, b, L, k_plus, dt, rng):
 
             #out of cell
             if (x**2/a**2 + y**2/b**2 > 1):
-                if i in ind:
-                    print("Bruv")
-                else:
-                    print("Whatt")
                 Adh[i] = -np.array([1e8, 1e8])
                 Adh0[i] = -np.array([1e8, 1e8])
 
