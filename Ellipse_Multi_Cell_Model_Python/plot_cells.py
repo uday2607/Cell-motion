@@ -69,11 +69,18 @@ def plot_ellipses(cells, cparams, Adh, Adh0, a, b, t):
         ax.add_patch(patch)
 
 
-    lc = mc.LineCollection(liness, colors="black", linewidths=2)
+    lc = mc.LineCollection(liness, colors="black", linewidths=1)
     ax.add_collection(lc)
+    x = [i[0] for j in liness for i in j]
+    y = [i[1] for j in liness for i in j]
+    ax.scatter(x, y, color="black", s=1)
 
-    ax.set_xlim(-2*a+x_min, x_max+2*a)
-    ax.set_ylim(-2*b+y_min, y_max+2*b)
+    multiplier = 5.0
+    for axis, setter in [(ax.xaxis, ax.set_xlim), (ax.yaxis, ax.set_ylim)]:
+        vmin, vmax = axis.get_data_interval()
+        vmin = multiplier * np.floor(vmin / multiplier)
+        vmax = multiplier * np.ceil(vmax / multiplier)
+        setter([vmin, vmax])
 
     plt.title("x = {:.4f}, y = {:.4f}, theta = {:.4f}".format(cells[0], cells[1], cparams[2]))
     plt.savefig("plots/{}.png".format(t))

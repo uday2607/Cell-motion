@@ -24,7 +24,6 @@ fThreshold = 0.0005
 k_b = 0.05
 k_f = 0.0001
 alpha = 25
-R = 2*a
 a_min = a*np.exp(-lamda*29/30)
 rng = np.random.default_rng()
 
@@ -35,7 +34,7 @@ cparams0 = cparams.copy()
 Adh0, Adh = adhesions.random_adhesions(L, a, b, cells, cparams, Nadh,
                                        k_plus, dt, rng)
 
-for t in range(4*tau):
+for t in range(6*tau):
 
     #plot in the beginning
     plot_cells.plot_ellipses(cells, cparams, Adh, Adh0, a, b, t)
@@ -76,10 +75,8 @@ for t in range(4*tau):
         #cell extension
         if cparams[4*num] <= a_min:
             #Protrusion
-            print(Adh[num][np.all(Adh[num]!=-1e8,axis=1)])
-            cells[3*num:(3*num+3)], cparams[4*num:(4*num+4)], Adh[num], Adh0[num] = adhesions.protrusion(cells[3*num:(3*num+3)], Adh[num], 
+            cells[3*num:(3*num+3)], cparams[4*num:(4*num+4)], Adh[num], Adh0[num] = adhesions.protrusion(cells[3*num:(3*num+3)], Adh[num],
                                                 Adh0[num], cparams[4*num:(4*num+4)], Nadh, a, b, L, k_plus, dt, rng)
-            print(Adh[num][np.all(Adh[num]!=-1e8,axis=1)])                                    
         elif cparams[4*num+3] == 1:
             #first phase
             Adh[num], Adh0[num] = adhesions.mature(cells[3*num:(3*num+3)],

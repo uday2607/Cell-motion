@@ -4,7 +4,7 @@ from energy import *
 # Function to find distance
 def shortest_distance(points, a, b, c):
 
-    x1 = points[:, 0]  
+    x1 = points[:, 0]
     y1 = points[:, 1]
     d = np.abs((a * x1 + b * y1 + c)) / (np.sqrt(a * a + b * b))
     return d
@@ -180,19 +180,18 @@ def contraction(cells_, cparams_, Ovlaps, Adh_, lamda, tau, dt, T_S, a, b,
 
 def protrusion(cell, Adh, Adh0, cp, Nadh, a, b, L, k_plus, dt, rng):
 
-    # Find the perpendicular line to semi major axis 
-    a1 = tan(pi/2 - pi/180*cp[2])
+    # Find the perpendicular line to semi major axis
+    a1 = -1/tan(pi/180*cp[2])
     b1 = -1
-    c1 = (-a1*(cp[0]*cos(pi/180*cp[2])) + 
+    c1 = (-a1*(cp[0]*cos(pi/180*cp[2])) +
          cp[0]*sin(pi/180*cp[2]))
 
     # indices of adhesions
     ind = np.arange(Adh.shape[0])[np.all(Adh !=-1e8,axis=1)]
     if ind.size != 0:
         # adhesion on the left most side
-        ad = np.argmax(shortest_distance(Adh[ind], 
+        ad = np.argmax(shortest_distance(Adh[ind],
                     a1, b1, c1))
-        print("Good")            
 
         #shift the front of the cell to the lest most
         #adhesion site
@@ -206,32 +205,30 @@ def protrusion(cell, Adh, Adh0, cp, Nadh, a, b, L, k_plus, dt, rng):
 
         #check if any adhesions are inside the cell
         for i in ind:
-            x = ((Adh[i][0])*cos(pi/180*cp[2]) + 
+            x = ((Adh[i][0])*cos(pi/180*cp[2]) +
                 (Adh[i][1])*sin(pi/180*cp[2]) + cell0[0] - cell[0])
-            y = (-(Adh[i][0])*sin(pi/180*cp[2]) + 
+            y = (-(Adh[i][0])*sin(pi/180*cp[2]) +
                 (Adh[i][1])*cos(pi/180*cp[2]) + cell0[1] - cell[1])
-            print(i, ind[ad])    
 
             #out of cell
             if (x**2/a**2 + y**2/b**2 > 1):
-                print("Hmmmm")
                 Adh[i] = -np.array([1e8, 1e8])
                 Adh0[i] = -np.array([1e8, 1e8])
             else:
-                Adh[i] -= cell[:2] - cell0[:2]  
+                Adh[i] += -cell[:2] + cell0[:2]
 
-        #reevaluate which adhesions are not present in the cell  
-        ind = np.arange(Adh.shape[0])[np.all(Adh ==-1e8,axis=1)]
+        #reevaluate which adhesions are not present in the cell
+        indn = np.arange(Adh.shape[0])[np.all(Adh ==-1e8,axis=1)]
 
         #create a adhesion in the front of the cell
         x, y = a, 0.0
         xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
         yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
-        Adh0[ind[0]] = np.array([xp, yp]) + cell[:2]
-        Adh[ind[0]] = np.array([xp, yp])
+        Adh0[indn[0]] = np.array([xp, yp]) + cell[:2]
+        Adh[indn[0]] = np.array([xp, yp])
 
         #populate other adhesions
-        for ad in ind[1:]:
+        for ad in indn[1:]:
             flag = 0
             if (rng.random() < k_plus*dt):
                 while flag == 0:
@@ -245,10 +242,27 @@ def protrusion(cell, Adh, Adh0, cp, Nadh, a, b, L, k_plus, dt, rng):
                         #Store adhesions
                         Adh0[ad] = np.array([xp, yp]) + cell[:2]
                         Adh[ad] = np.array([xp, yp])
-                        flag = 1             
+                        flag = 1
+
+        #sanity check to make sure all the adhesions are inside
+        ind_ = np.arange(Adh.shape[0])[np.all(Adh !=-1e8,axis=1)]
+        for i in ind_:
+            x = ((Adh[i][0])*cos(pi/180*cp[2]) +
+                (Adh[i][1])*sin(pi/180*cp[2]))
+            y = (-(Adh[i][0])*sin(pi/180*cp[2]) +
+                (Adh[i][1])*cos(pi/180*cp[2]))
+
+            #out of cell
+            if (x**2/a**2 + y**2/b**2 > 1):
+                if i in ind:
+                    print("Bruv")
+                else:
+                    print("Whatt")
+                Adh[i] = -np.array([1e8, 1e8])
+                Adh0[i] = -np.array([1e8, 1e8])
+
 
     else:
-        print("Bad")
         #shift the cell so that front of the previous phase
         #is the back of the new phase
         cell[0] += (a+cp[0])*cos(pi/180*cp[2])
@@ -296,7 +310,7 @@ def protrusion(cell, Adh, Adh0, cp, Nadh, a, b, L, k_plus, dt, rng):
                         flag = 1
 
     return cell, cp, Adh, Adh0
-                 
+
 
 def mature(cell, Adh, Adh0, cp, Nadh, k_s, fTh, dt, rng):
 
@@ -325,8 +339,8 @@ def detach(cell, cell0, Adh, Adh0, cp, cp0,
         #detachment rate
         k_x = k_b - (k_b - k_f)*(x0+a)/(2*a)
 
-        dis = sqrt(np.sum((Adh[i]-Adh0[i])**2.))
-        off_rate = k_x*exp(alpha*dis*0.03/(4*a))
+        dis = sqrt(np.sum((Adh[i]+cell[:2]-Adh0[i])**2.))
+        off_rate = k_x*exp(alpha*dis*0.5/(4*a))
 
         #detach adhesion site
         if (rng.random() < off_rate*dt):
@@ -334,4 +348,3 @@ def detach(cell, cell0, Adh, Adh0, cp, cp0,
             Adh0[i] = np.array([-1e8, -1e8])
 
     return Adh, Adh0
-
