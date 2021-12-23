@@ -1,6 +1,14 @@
 from cell import *
 from energy import *
 
+# Function to find distance
+def shortest_distance(points, a, b, c):
+
+    x1 = points[:, 0]  
+    y1 = points[:, 1]
+    d = np.abs((a * x1 + b * y1 + c)) / (np.sqrt(a * a + b * b))
+    return d
+
 def random_adhesions(L, a, b, cells, cparams,
                     Nadh, k_plus, dt, rng):
 
@@ -32,7 +40,7 @@ def random_adhesions(L, a, b, cells, cparams,
                     y = rng.uniform(-b, b)
 
                     if (x**2/a**2 + y**2/b**2 <= 1):
-                        xp = (x*cos(pi/180*cparams[4*ind+2]) +
+                        xp = (x*cos(pi/180*cparams[4*ind+2]) -
                                 y*sin(pi/180*cparams[4*ind+2]))
                         yp = (x*sin(pi/180*cparams[4*ind+2]) +
                                 y*cos(pi/180*cparams[4*ind+2]))
@@ -53,14 +61,14 @@ def new_adhesion(cell, cp, Nadh, a, b, L, k_plus, dt, rng):
     #Front and back points must be connected
     #front
     x, y = a, 0.0
-    xp = (x*cos(pi/180*cp[2]) + y*sin(pi/180*cp[2]))
+    xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
     yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
     Adh0[0] = np.array([xp, yp]) + cell[:2]
     Adh[0] = np.array([xp, yp])
 
     #back
     x, y = -a, 0.0
-    xp = (x*cos(pi/180*cp[2]) + y*sin(pi/180*cp[2]))
+    xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
     yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
     Adh0[1] = np.array([xp, yp]) + cell[:2]
     Adh[1] = np.array([xp, yp])
@@ -74,7 +82,7 @@ def new_adhesion(cell, cp, Nadh, a, b, L, k_plus, dt, rng):
                 y = rng.uniform(-b, b)
 
                 if (x**2/a**2 + y**2/b**2 <= 1):
-                    xp = (x*cos(pi/180*cp[2]) + y*sin(pi/180*cp[2]))
+                    xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
                     yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
 
                     #Store adhesions
@@ -170,6 +178,126 @@ def contraction(cells_, cparams_, Ovlaps, Adh_, lamda, tau, dt, T_S, a, b,
 
     return cparams, Adh
 
+def protrusion(cell, Adh, Adh0, cp, Nadh, a, b, L, k_plus, dt, rng):
+
+    # Find the perpendicular line to semi major axis 
+    a1 = tan(pi/2 - pi/180*cp[2])
+    b1 = -1
+    c1 = (-a1*(cp[0]*cos(pi/180*cp[2])) + 
+         cp[0]*sin(pi/180*cp[2]))
+
+    # indices of adhesions
+    ind = np.arange(Adh.shape[0])[np.all(Adh !=-1e8,axis=1)]
+    if ind.size != 0:
+        # adhesion on the left most side
+        ad = np.argmax(shortest_distance(Adh[ind], 
+                    a1, b1, c1))
+        print("Good")            
+
+        #shift the front of the cell to the lest most
+        #adhesion site
+        cell0 = cell.copy()
+        cell[0] += a*cos(pi/180*cp[2]) + Adh[ind[ad]][0]
+        cell[1] += a*sin(pi/180*cp[2]) + Adh[ind[ad]][1]
+
+        #reset phase
+        cp[0] = a
+        cp[3] = 0
+
+        #check if any adhesions are inside the cell
+        for i in ind:
+            x = ((Adh[i][0])*cos(pi/180*cp[2]) + 
+                (Adh[i][1])*sin(pi/180*cp[2]) + cell0[0] - cell[0])
+            y = (-(Adh[i][0])*sin(pi/180*cp[2]) + 
+                (Adh[i][1])*cos(pi/180*cp[2]) + cell0[1] - cell[1])
+            print(i, ind[ad])    
+
+            #out of cell
+            if (x**2/a**2 + y**2/b**2 > 1):
+                print("Hmmmm")
+                Adh[i] = -np.array([1e8, 1e8])
+                Adh0[i] = -np.array([1e8, 1e8])
+            else:
+                Adh[i] -= cell[:2] - cell0[:2]  
+
+        #reevaluate which adhesions are not present in the cell  
+        ind = np.arange(Adh.shape[0])[np.all(Adh ==-1e8,axis=1)]
+
+        #create a adhesion in the front of the cell
+        x, y = a, 0.0
+        xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
+        yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
+        Adh0[ind[0]] = np.array([xp, yp]) + cell[:2]
+        Adh[ind[0]] = np.array([xp, yp])
+
+        #populate other adhesions
+        for ad in ind[1:]:
+            flag = 0
+            if (rng.random() < k_plus*dt):
+                while flag == 0:
+                    x = rng.uniform(-a, a)
+                    y = rng.uniform(-b, b)
+
+                    if (x**2/a**2 + y**2/b**2 <= 1):
+                        xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
+                        yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
+
+                        #Store adhesions
+                        Adh0[ad] = np.array([xp, yp]) + cell[:2]
+                        Adh[ad] = np.array([xp, yp])
+                        flag = 1             
+
+    else:
+        print("Bad")
+        #shift the cell so that front of the previous phase
+        #is the back of the new phase
+        cell[0] += (a+cp[0])*cos(pi/180*cp[2])
+        cell[1] += (a+cp[0])*sin(pi/180*cp[2])
+
+        #reset phase
+        cp[0] = a
+        cp[3] = 0
+
+        #completely new adhesions
+        Adh = np.zeros((Nadh, 2)) - 1e8
+        Adh0 = np.zeros((Nadh, 2)) - 1e8
+
+        #Front and back points must be connected
+        #front
+        x, y = a, 0.0
+        xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
+        yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
+        Adh0[0] = np.array([xp, yp]) + cell[:2]
+        Adh[0] = np.array([xp, yp])
+
+        #back
+        x, y = -a, 0.0
+        xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
+        yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
+        Adh0[1] = np.array([xp, yp]) + cell[:2]
+        Adh[1] = np.array([xp, yp])
+
+        n = 2
+        for i in range(Nadh-2):
+            flag = 0
+            if (rng.random() < k_plus*dt):
+                while flag == 0:
+                    x = rng.uniform(-a, a)
+                    y = rng.uniform(-b, b)
+
+                    if (x**2/a**2 + y**2/b**2 <= 1):
+                        xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
+                        yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
+
+                        #Store adhesions
+                        Adh0[n] = np.array([xp, yp]) + cell[:2]
+                        Adh[n] = np.array([xp, yp])
+                        n += 1
+                        flag = 1
+
+    return cell, cp, Adh, Adh0
+                 
+
 def mature(cell, Adh, Adh0, cp, Nadh, k_s, fTh, dt, rng):
 
     ind = np.arange(Adh.shape[0])[np.all(Adh !=-1e8,axis=1)]
@@ -198,7 +326,7 @@ def detach(cell, cell0, Adh, Adh0, cp, cp0,
         k_x = k_b - (k_b - k_f)*(x0+a)/(2*a)
 
         dis = sqrt(np.sum((Adh[i]-Adh0[i])**2.))
-        off_rate = k_x*exp(alpha*dis*0.1/(4*a))
+        off_rate = k_x*exp(alpha*dis*0.03/(4*a))
 
         #detach adhesion site
         if (rng.random() < off_rate*dt):
@@ -206,3 +334,4 @@ def detach(cell, cell0, Adh, Adh0, cp, cp0,
             Adh0[i] = np.array([-1e8, -1e8])
 
     return Adh, Adh0
+

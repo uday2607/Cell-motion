@@ -75,5 +75,6 @@ def plot_ellipses(cells, cparams, Adh, Adh0, a, b, t):
     ax.set_xlim(-2*a+x_min, x_max+2*a)
     ax.set_ylim(-2*b+y_min, y_max+2*b)
 
+    plt.title("x = {:.4f}, y = {:.4f}, theta = {:.4f}".format(cells[0], cells[1], cparams[2]))
     plt.savefig("plots/{}.png".format(t))
     plt.close()

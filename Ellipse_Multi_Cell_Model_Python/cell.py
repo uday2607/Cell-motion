@@ -1,7 +1,7 @@
 from shapely.geometry.point import Point
 from shapely import affinity
 import numpy as np
-from math import sin, cos, pi, exp, sqrt
+from math import sin, cos, tan, pi, exp, sqrt
 
 def create_ellipse(center, lengths, angle=0):
     """

@@ -9,8 +9,8 @@ import math
 a = 6
 b = 3
 L = 40
-Num = 2
-Nadh = 256
+Num = 1
+Nadh = 64
 k_plus = 0.5
 dt = 1
 lamda = 0.7
@@ -21,8 +21,8 @@ k_out_out = 0.002
 k_in_out = 10000
 k_in_in = 100000
 fThreshold = 0.0005
-k_b = 0.02
-k_f = 0.005
+k_b = 0.05
+k_f = 0.0001
 alpha = 25
 R = 2*a
 a_min = a*np.exp(-lamda*29/30)
@@ -39,7 +39,6 @@ for t in range(4*tau):
 
     #plot in the beginning
     plot_cells.plot_ellipses(cells, cparams, Adh, Adh0, a, b, t)
-    print(t, Adh)
 
     #Find the overlap indices
     Ovlaps = cell.find_overlaps(cells, cparams, Ovlaps)
@@ -76,18 +75,11 @@ for t in range(4*tau):
     for num in range(Num):
         #cell extension
         if cparams[4*num] <= a_min:
-            #reset phase
-            cparams[4*num] = a
-            cparams[4*num+3] = 0
-
             #Protrusion
-            cells0[3*num:(3*num+3)] = cells[3*num:(3*num+3)].copy()
-            cparams0[4*num:(4*num+4)] = cparams[4*num:(4*num+4)].copy()
-
-            #new adhesions
-            Adh[num], Adh0[num] = adhesions.new_adhesion(cells[3*num:(3*num+3)],
-                                    cparams[4*num:(4*num+3)], Nadh, a, b, L, k_plus,
-                                    dt, rng)
+            print(Adh[num][np.all(Adh[num]!=-1e8,axis=1)])
+            cells[3*num:(3*num+3)], cparams[4*num:(4*num+4)], Adh[num], Adh0[num] = adhesions.protrusion(cells[3*num:(3*num+3)], Adh[num], 
+                                                Adh0[num], cparams[4*num:(4*num+4)], Nadh, a, b, L, k_plus, dt, rng)
+            print(Adh[num][np.all(Adh[num]!=-1e8,axis=1)])                                    
         elif cparams[4*num+3] == 1:
             #first phase
             Adh[num], Adh0[num] = adhesions.mature(cells[3*num:(3*num+3)],
