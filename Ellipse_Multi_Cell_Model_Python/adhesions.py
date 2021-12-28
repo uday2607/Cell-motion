@@ -1,5 +1,6 @@
 from cell import *
 from energy import *
+from scipy.optimize import fsolve
 
 # Function to find distance
 def shortest_distance(points, a, b, c):
@@ -33,24 +34,27 @@ def random_adhesions(L, a, b, cells, cparams,
         Adh[ind, 1] = np.array([xp, yp])
 
         for i in range(Nadh-2):
-            flag = 0
-            if (rng.random() < k_plus*dt):
-                while flag == 0:
-                    x = rng.uniform(-a, a)
-                    y = rng.uniform(-b, b)
 
-                    if (x**2/a**2 + y**2/b**2 <= 1):
-                        xp = (x*cos(pi/180*cparams[4*ind+2]) -
+            phi = rng.uniform(0, float(2*pi))
+            rho = rng.uniform(0, 1)
+
+            #In the system frame of reference
+            x = a*sqrt(rho)*cos(phi)
+            y = b*sqrt(rho)*sin(phi)
+
+            if (rng.random() < k_plus*dt):
+                #Transform into ellipse
+                xp = (x*cos(pi/180*cparams[4*ind+2]) -
                                 y*sin(pi/180*cparams[4*ind+2]))
-                        yp = (x*sin(pi/180*cparams[4*ind+2]) +
+                yp = (x*sin(pi/180*cparams[4*ind+2]) +
                                 y*cos(pi/180*cparams[4*ind+2]))
 
-                        #Store adhesions
-                        Adh0[ind, n] = np.array([xp, yp]) + cells[3*ind:(3*ind+2)]
-                        Adh[ind, n] = np.array([xp, yp])
-                        n += 1
-                        flag = 1
-
+                #Store adhesions
+                #From ground reference
+                Adh0[ind, i] = np.array([xp, yp]) + cells[3*ind:(3*ind+2)]
+                #From centre of cell(GFR)
+                Adh[ind, i] = np.array([xp, yp])
+                  
     return Adh0, Adh
 
 def new_adhesion(cell, cp, Nadh, a, b, L, k_plus, dt, rng):
@@ -75,25 +79,28 @@ def new_adhesion(cell, cp, Nadh, a, b, L, k_plus, dt, rng):
 
     n = 2
     for i in range(Nadh-2):
-        flag = 0
+        
+        phi = rng.uniform(0, float(2*pi))
+        rho = rng.uniform(0, 1)
+
+        #In the system frame of reference
+        x = a*sqrt(rho)*cos(phi)
+        y = b*sqrt(rho)*sin(phi)
+
         if (rng.random() < k_plus*dt):
-            while flag == 0:
-                x = rng.uniform(-a, a)
-                y = rng.uniform(-b, b)
+            #Transform into ellipse
+            xp = (x*cos(pi/180*cp[4*ind+2]) -
+                    y*sin(pi/180*cp[4*ind+2]))
+            yp = (x*sin(pi/180*cp[4*ind+2]) +
+                    y*cos(pi/180*cp[4*ind+2]))
 
-                if (x**2/a**2 + y**2/b**2 <= 1):
-                    xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
-                    yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
-
-                    #Store adhesions
-                    Adh0[n] = np.array([xp, yp]) + cell[:2]
-                    Adh[n] = np.array([xp, yp])
-                    n += 1
-                    flag = 1
+            #Store adhesions
+            Adh0[ind, i] = np.array([xp, yp]) + cell[:+2]
+            Adh[ind, i] = np.array([xp, yp])
 
     return Adh, Adh0
 
-def rotation(cells_, cparams_, Adh_):
+def rotation_and_shift(cells_, cell_p, cparams_, Adh_):
 
     cells = cells_.copy()
     cparams = cparams_.copy()
@@ -101,10 +108,13 @@ def rotation(cells_, cparams_, Adh_):
 
     for i in range(cells.shape[0]//3):
         ind = np.arange(Adh.shape[1])[np.all(Adh[i]!=-1e8,axis=1)]
-        x, y = Adh_[i, ind, 0], Adh_[i, ind, 1]
-        dtheta = pi/180*cells_[3*i+2]
+
+        #Shift the adhesions 
+        Adh[i, ind] += -(cells_[3*i:3*i+2] - cell_p[3*i:3*i+2]).copy()
 
         #rotate all the adhesions
+        x, y = Adh_[i, ind, 0], Adh_[i, ind, 1]
+        dtheta = pi/180*cells_[3*i+2]
         Adh[i, ind, 0] = cos(dtheta)*x - sin(dtheta)*y
         Adh[i, ind, 1] = sin(dtheta)*x + cos(dtheta)*y
 
@@ -112,219 +122,349 @@ def rotation(cells_, cparams_, Adh_):
         cparams[4*i+2] += cells_[3*i+2]
         cells[3*i+2] = 0
 
-    return cells, cparams, Adh
+    return cells, cparams, Adh    
 
-def contraction(cells_, cparams_, Ovlaps, Adh_, lamda, tau, dt, T_S, a, b,
+def contraction(cells_, cparams_, Ovlaps_, Adh_, Adh0_, lamda, tau, dt, T_S, a, b,
                 k_out_out, k_in_out, k_in_in, k_s):
 
-    cparams = cparams_.copy()
-    cells = cells_.copy()
-    Adh = Adh_.copy()
+    cells = np.array(cells_)
+    Adh = np.array(Adh_)
+    Adh0 = np.array(Adh0_)
+    Ovlaps = np.array(Ovlaps_)
+    cparams = np.array(cparams_)
+
+    #Sanity check
+    #dtheta should be zero
+    if np.any(cells[3*np.arange(cells.shape[0]//3)+2] != 0):
+        print("Dtheta is not zero(Contraction)")
+        print("Code exiting")
+        exit(1)
 
     for i in range(cells.shape[0]//3):
-        # If no cells overlap
-        if (np.all(Ovlaps[i] == -1e8)):
-             c = lamda*dt/tau
+        
+        #compute tension due to other cells
+        T = compute_tension(cells, i, cparams, Ovlaps, Adh, Adh0,
+                            k_out_out, k_in_out, k_in_in, k_s)
+        #Tension is less than critical tension
+        if (T < T_S and T > 0):
+            c = lamda*dt*(1-T/T_S)/(tau)
 
-             # Update a
-             cparams[4*i] = a*exp(-c*cparams_[4*i+3])
-             ind = np.arange(Adh.shape[1])[np.all(Adh[i]!=-1e8,axis=1)]
-             x, y = Adh_[i, ind, 0], Adh_[i, ind, 1]
-             theta = pi/180*(cparams_[4*i+2]+cells_[3*i+2])
+            # Update a and phase
+            cparams[4*i] -= c*cparams[4*i]
+            cparams[4*i+3] += 1
 
-             Adh[i, ind, 0] = (x - c*cos(theta)*cos(theta)*x -
-                                c*sin(theta)*cos(theta)*y)
-             Adh[i, ind, 1] = (y - c*sin(theta)*cos(theta)*x -
-                                c*sin(theta)*sin(theta)*y)
+            ind = np.arange(Adh.shape[1])[np.all(Adh[i]!=-1e8,axis=1)]
+            x, y = Adh[i, ind, 0], Adh[i, ind, 1]
+            theta = pi/180*(cparams[4*i+2]+cells[3*i+2])
+
+            Adh[i, ind, 0] = (x - c*cos(theta)*cos(theta)*x -
+                              c*sin(theta)*cos(theta)*y)
+            Adh[i, ind, 1] = (y - c*sin(theta)*cos(theta)*x -
+                              c*sin(theta)*sin(theta)*y)
+        elif (T <= 0):
+            # negative tension means no stalling
+            c = lamda*dt/(tau)
+
+            # Update a and phase
+            cparams[4*i] -= c*cparams[4*i]
+            cparams[4*i+3] += 1
+
+            ind = np.arange(Adh.shape[1])[np.all(Adh[i]!=-1e8,axis=1)]
+            x, y = Adh[i, ind, 0], Adh[i, ind, 1]
+            theta = pi/180*(cparams[4*i+2]+cells[3*i+2])
+
+            Adh[i, ind, 0] = (x - c*cos(theta)*cos(theta)*x -
+                             c*sin(theta)*cos(theta)*y)
+            Adh[i, ind, 1] = (y - c*sin(theta)*cos(theta)*x -
+                             c*sin(theta)*sin(theta)*y)
         else:
-            #cells overlap
-
-            #compute tension due to other cells
-            T = compute_tension(cells_, i, cparams_, Ovlaps,
-                                k_out_out, k_in_out, k_in_in)
-            #Tension is less than critical tension
-            if (T < T_S):
-                c = lamda*dt*(1-T/T_S)/tau
-
-                # Update a
-                cparams[4*i] = a*exp(-c*cparams_[4*i+3])
-
-                ind = np.arange(Adh.shape[1])[np.all(Adh[i]!=-1e8,axis=1)]
-                x, y = Adh[i, ind, 0], Adh[i, ind, 1]
-                theta = pi/180*(cparams_[4*i+2]+cells_[3*i+2])
-
-                Adh_[i, ind, 0] = (x - c*cos(theta)*cos(theta)*x -
-                                   c*sin(theta)*cos(theta)*y)
-                Adh_[i, ind, 1] = (y - c*sin(theta)*cos(theta)*x -
-                                   c*sin(theta)*sin(theta)*y)
-            elif (T <= 0):
-                # negative tension means no stalling
-                c = lamda*dt/tau
-
-                # Update a
-                cparams[4*i] = a*exp(-c*cparams_[4*i+3])
-                ind = np.arange(Adh.shape[1])[np.all(Adh[i]!=-1e8,axis=1)]
-                x, y = Adh_[i, ind, 0], Adh_[i, ind, 1]
-                theta = pi/180*(cparams_[4*i+2]+cells_[3*i+2])
-
-                Adh[i, ind, 0] = (x - c*cos(theta)*cos(theta)*x -
-                                   c*sin(theta)*cos(theta)*y)
-                Adh[i, ind, 1] = (y - c*sin(theta)*cos(theta)*x -
-                                   c*sin(theta)*sin(theta)*y)
-            else:
-                #Tension is more than critical tension
-                #No shift of adhesions
-                continue
+            #Tension is more than critical tension
+            #No shift of adhesions
+            continue
 
     return cparams, Adh
 
-def protrusion(cell, Adh, Adh0, cp, Nadh, a, b, L, k_plus, dt, rng):
+def solve_center(vals, a, b, theta, h, k, xc, yc):
 
-    # Find the perpendicular line to semi major axis
-    a1 = -1/tan(pi/180*cp[2])
-    b1 = -1
-    c1 = (-a1*(cp[0]*cos(pi/180*cp[2])) +
-         cp[0]*sin(pi/180*cp[2]))
+    x, y = vals 
+
+    return [((x-h)*cos(theta)+(y-k)*sin(theta))**2/a**2+
+            ((x-h)*sin(theta)-(y-k)*cos(theta))**2/b**2 - 1,
+            y-yc-tan(theta)*(x-xc)]
+
+def protrusion(cells, num, Adh, Adh0, cparams, 
+                Nadh, a, b, k_plus, dt, rng):
+
+    # Make copies of array
+    cell = np.array(cells[3*num:3*num+3])
+    cp = np.array(cparams[4*num:4*num+4])            
 
     # indices of adhesions
     ind = np.arange(Adh.shape[0])[np.all(Adh !=-1e8,axis=1)]
+
+    # If there are FAs
     if ind.size != 0:
-        # adhesion on the left most side
-        ad = np.argmax(shortest_distance(Adh[ind],
-                    a1, b1, c1))
 
-        #shift the front of the cell to the lest most
-        #adhesion site
-        cell0 = cell.copy()
-        cell[0] += a*cos(pi/180*cp[2]) + Adh[ind[ad]][0]
-        cell[1] += a*sin(pi/180*cp[2]) + Adh[ind[ad]][1]
+        # Find the perpendicular line to semi major axis
+        a1 = -1/tan(pi/180*cp[2])
+        b1 = -1
+        c1 = (-a1*(cp[0]*cos(pi/180*cp[2])) +
+             cp[0]*sin(pi/180*cp[2]))
 
-        #reset phase
-        cp[0] = a
+        #adhesion on the left most side
+        ad = ind[np.argmax(shortest_distance(Adh[ind],
+                    a1, b1, c1))]
+
+        #reset the phase 
         cp[3] = 0
 
-        #check if any adhesions are inside the cell
+        #Calculate the new position of the center
+        #(The left most point should intersect the cell)
+        theta = cp[2]*pi/180
+        h = Adh[ad][0] + cell[0]
+        k = Adh[ad][1] + cell[1]
+        xc, yc = cell[:2]
+        aval, bval = a, b
+        args = (aval, bval, theta, h, k, xc, yc)
+        xc, yc = fsolve(solve_center, cell[:2], args=args)
+
+        #create ellipses
+        ell_i_in = create_ellipse((xc, yc), 
+                    (aval/2, bval/2), theta)
+        ell_i_out = create_ellipse((xc, yc), 
+                    (aval, bval), theta)
+
+        # Check if protruded cell overlaps      
+        if one_cell_overlap(ell_i_in, ell_i_out, 
+                    num, cells, cparams):
+
+            #Find the correct value of 'a'
+            a_max = a
+            a_min = cp[0]
+
+            #Iterate till a value is found
+            while (a_max - a_min > 1e-4):
+                aval = (a_max - a_min)/2
+                xc, yc = cell[:2]
+                args = (aval, bval, theta, h, k, xc, yc)
+                xc, yc = fsolve(solve_center, cell[:2], args=args)
+
+                #create ellipses
+                ell_i_in = create_ellipse((xc, yc), 
+                    (aval/2, bval/2), theta)
+                ell_i_out = create_ellipse((xc, yc), 
+                    (aval, bval), theta)
+
+                #check if this cell overlaps
+                if one_cell_overlap(ell_i_in, ell_i_out, 
+                    num, cells, cparams):
+                    a_max = aval 
+                    a_min = a_min
+                else:
+                    a_max = a_max
+                    a_min = aval    
+
+            #Update the coordinates
+            cell[:2] = np.array([xc, yc])
+
+        else:
+            #Update the coordinates
+            cell[:2] = np.array([xc, yc])
+
+        #Translate all adhesion sites to new cell
+        h = aval - cparams[4*num]
+        cp, Adh = virtual_extension(cp, Adh, h)    
+
+        #Check if any adhesions are inside
+        ell = create_ellipse(cell[:2], cp[:2], theta)
         for i in ind:
-            x = ((Adh[i][0]+cell0[0]-cell[0])*cos(pi/180*cp[2]) +
-                (Adh[i][1]+cell0[1]-cell[1])*sin(pi/180*cp[2]))
-            y = (-(Adh[i][0]+cell0[0]-cell[0])*sin(pi/180*cp[2]) +
-                (Adh[i][1]+cell0[1]-cell[1])*cos(pi/180*cp[2]))
-
-            #out of cell
-            if (x**2/a**2 + y**2/b**2 > 1):
-                Adh[i] = -np.array([1e8, 1e8])
-                Adh0[i] = -np.array([1e8, 1e8])
+            #inside the ellipse
+            xad, yad = Adh[i] + cells[3*num:3*num+2] - cell[:2]
+            if ell.contains(Point(xad, yad)):
+                Adh[i] = np.array([xad, yad])
             else:
-                Adh[i] += -(cell[:2] - cell0[:2]).copy()
-                x = ((Adh[i][0])*cos(pi/180*cp[2]) +
-                    (Adh[i][1])*sin(pi/180*cp[2]))
-                y = (-(Adh[i][0])*sin(pi/180*cp[2]) +
-                    (Adh[i][1])*cos(pi/180*cp[2]))
+                Adh[i] = -np.array([1e8, 1e8]) 
+                Adh0[i] = -np.array([1e8, 1e8])                        
 
-                #out of cell
-                if (x**2/a**2 + y**2/b**2 > 1):
-                    if i in ind:
-                        print("Bruv")
-                    else:
-                        print("Whatt")
-
-        #reevaluate which adhesions are not present in the cell
+        #reevaluate how many adhesions are not present in the cell
         indn = np.arange(Adh.shape[0])[np.all(Adh ==-1e8,axis=1)]
 
-        #create a adhesion in the front of the cell
-        x, y = a, 0.0
-        xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
-        yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
-        Adh0[indn[0]] = np.array([xp, yp]) + cell[:2]
-        Adh[indn[0]] = np.array([xp, yp])
+        #Check if any other adhesion is possible
+        if indn.shape != 0:
+            #create a adhesion in the front of the cell
+            x, y = aval, 0.0
+            xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
+            yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
+            Adh0[indn[0]] = np.array([xp, yp]) + cell[:2]
+            Adh[indn[0]] = np.array([xp, yp])
 
-        #populate other adhesions
-        for ad in indn[1:]:
-            flag = 0
-            if (rng.random() < k_plus*dt):
-                while flag == 0:
-                    x = rng.uniform(-a, a)
-                    y = rng.uniform(-b, b)
+            #create a adhesion in the back of the cell
+            x, y = -aval, 0.0
+            xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
+            yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
+            Adh0[indn[1]] = np.array([xp, yp]) + cell[:2]
+            Adh[indn[1]] = np.array([xp, yp])
 
-                    if (x**2/a**2 + y**2/b**2 <= 1):
-                        xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
-                        yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
+            #populate other adhesions
+            for ad in indn[2:]:
+                phi = rng.uniform(0, float(2*pi))
+                rho = rng.uniform(0, 1)
 
-                        #Store adhesions
-                        Adh0[ad] = np.array([xp, yp]) + cell[:2]
-                        Adh[ad] = np.array([xp, yp])
-                        flag = 1
+                #In the system frame of reference
+                x = a*sqrt(rho)*cos(phi)
+                y = b*sqrt(rho)*sin(phi)
 
-        #sanity check to make sure all the adhesions are inside
-        ind_ = np.arange(Adh.shape[0])[np.all(Adh !=-1e8,axis=1)]
-        for i in ind_:
-            x = ((Adh[i][0])*cos(pi/180*cp[2]) +
-                (Adh[i][1])*sin(pi/180*cp[2]))
-            y = (-(Adh[i][0])*sin(pi/180*cp[2]) +
-                (Adh[i][1])*cos(pi/180*cp[2]))
+                if (rng.random() < k_plus*dt):
+                    #Transform into ellipse
+                    xp = (x*cos(pi/180*cp[2]) -
+                            y*sin(pi/180*cp[2]))
+                    yp = (x*sin(pi/180*cp[2]) +
+                            y*cos(pi/180*cp[2]))
 
-            #out of cell
-            if (x**2/a**2 + y**2/b**2 > 1):
-                Adh[i] = -np.array([1e8, 1e8])
-                Adh0[i] = -np.array([1e8, 1e8])
-
+                    #Store adhesions
+                    Adh0[ad] = np.array([xp, yp]) + cell[:2]
+                    Adh[ad] = np.array([xp, yp])
+                    
+            #sanity check to make sure all the adhesions are inside
 
     else:
-        #shift the cell so that front of the previous phase
-        #is the back of the new phase
-        cell[0] += (a+cp[0])*cos(pi/180*cp[2])
-        cell[1] += (a+cp[0])*sin(pi/180*cp[2])
+        # When there are no adhesions, the cell
+        # protrudes so that overlap energy is minimized
+        theta = cp[2]*pi/180
+        xc, yc = cell[:2]
+        aval, bval = a, b
 
-        #reset phase
-        cp[0] = a
-        cp[3] = 0
+        #create ellipses
+        ell_i_in = create_ellipse((xc, yc), 
+                    (aval/2, bval/2), theta)
+        ell_i_out = create_ellipse((xc, yc), 
+                    (aval, bval), theta)
 
-        #completely new adhesions
-        Adh = np.zeros((Nadh, 2)) - 1e8
-        Adh0 = np.zeros((Nadh, 2)) - 1e8
+        # Check if cell overlaps inner ellipses     
+        if one_cell_overlap(ell_i_in, ell_i_out, 
+                    num, cells, cparams):
 
-        #Front and back points must be connected
-        #front
-        x, y = a, 0.0
-        xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
-        yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
-        Adh0[0] = np.array([xp, yp]) + cell[:2]
-        Adh[0] = np.array([xp, yp])
+            #Find the correct value of 'a'
+            a_max = a
+            a_min = cp[0]
 
-        #back
-        x, y = -a, 0.0
-        xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
-        yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
-        Adh0[1] = np.array([xp, yp]) + cell[:2]
-        Adh[1] = np.array([xp, yp])
+            #Iterate till a value is found
+            while (a_max - a_min > 1e-4):
+                aval = (a_max - a_min)/2
+                xc, yc = cell[:2]
 
-        n = 2
-        for i in range(Nadh-2):
-            flag = 0
-            if (rng.random() < k_plus*dt):
-                while flag == 0:
-                    x = rng.uniform(-a, a)
-                    y = rng.uniform(-b, b)
+                #create ellipses
+                ell_i_in = create_ellipse((xc, yc), 
+                    (aval/2, bval/2), theta)
+                ell_i_out = create_ellipse((xc, yc), 
+                    (aval, bval), theta)
 
-                    if (x**2/a**2 + y**2/b**2 <= 1):
-                        xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
-                        yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
+                #check if this cell overlaps
+                if one_cell_overlap(ell_i_in, ell_i_out, 
+                    num, cells, cparams):
+                    a_max = aval 
+                    a_min = a_min
+                else:
+                    a_max = a_max
+                    a_min = aval    
 
-                        #Store adhesions
-                        Adh0[n] = np.array([xp, yp]) + cell[:2]
-                        Adh[n] = np.array([xp, yp])
-                        n += 1
-                        flag = 1
+            #Update phase and a
+            cp[0] = aval
+            cp[3] = 0
 
+            #completely new adhesions
+            Adh = np.zeros((Nadh, 2)) - 1e8
+            Adh0 = np.zeros((Nadh, 2)) - 1e8
+
+            #Front and back points must be connected
+            #front
+            x, y = aval, 0.0
+            xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
+            yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
+            Adh0[0] = np.array([xp, yp]) + cell[:2]
+            Adh[0] = np.array([xp, yp])
+
+            #back
+            x, y = -aval, 0.0
+            xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
+            yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
+            Adh0[1] = np.array([xp, yp]) + cell[:2]
+            Adh[1] = np.array([xp, yp])
+
+            n = 2
+            for i in range(Nadh-2):
+        
+                phi = rng.uniform(0, float(2*pi))
+                rho = rng.uniform(0, 1)
+
+                #In the system frame of reference
+                x = a*sqrt(rho)*cos(phi)
+                y = b*sqrt(rho)*sin(phi)
+
+                if (rng.random() < k_plus*dt):
+                    #Transform into ellipse
+                    xp = (x*cos(pi/180*cp[2]) -
+                            y*sin(pi/180*cp[2]))
+                    yp = (x*sin(pi/180*cp[2]) +
+                            y*cos(pi/180*cp[2]))
+
+                    #Store adhesions
+                    Adh0[i] = np.array([xp, yp]) + cell[:+2]
+                    Adh[i] = np.array([xp, yp])   
+
+        else:
+            #No adhesions and no overlaps
+            #Update phase and a
+            cp[0] = a
+            cp[3] = 0
+
+            #completely new adhesions
+            Adh = np.zeros((Nadh, 2)) - 1e8
+            Adh0 = np.zeros((Nadh, 2)) - 1e8
+
+            #Front and back points must be connected
+            #front
+            x, y = a, 0.0
+            xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
+            yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
+            Adh0[0] = np.array([xp, yp]) + cell[:2]
+            Adh[0] = np.array([xp, yp])
+
+            #back
+            x, y = -a, 0.0
+            xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
+            yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
+            Adh0[1] = np.array([xp, yp]) + cell[:2]
+            Adh[1] = np.array([xp, yp])
+
+            n = 2
+            for i in range(Nadh-2):
+                phi = rng.uniform(0, float(2*pi))
+                rho = rng.uniform(0, 1)
+
+                #In the system frame of reference
+                x = a*sqrt(rho)*cos(phi)
+                y = b*sqrt(rho)*sin(phi)
+
+                if (rng.random() < k_plus*dt):
+                    #Transform into ellipse
+                    xp = (x*cos(pi/180*cp[2]) -
+                            y*sin(pi/180*cp[2]))
+                    yp = (x*sin(pi/180*cp[2]) +
+                            y*cos(pi/180*cp[2]))
+
+                    #Store adhesions
+                    Adh0[ind, i] = np.array([xp, yp]) + cell[:+2]
+                    Adh[ind, i] = np.array([xp, yp])
+                             
     return cell, cp, Adh, Adh0
 
-
-def mature(cell, Adh, Adh0, cp, Nadh, k_s, fTh, dt, rng):
+def mature(cell, Adh, Adh0, k_s, fTh, dt, rng):
 
     ind = np.arange(Adh.shape[0])[np.all(Adh !=-1e8,axis=1)]
 
     for i in ind:
-        dis = sqrt(np.sum((Adh[i]-Adh0[i])**2.))
+        dis = sqrt(np.sum((Adh[i]+cell[:2]-Adh0[i])**2.))
         off_rate = exp(-k_s*dis/fTh)
 
         #detach adhesion site
@@ -334,8 +474,8 @@ def mature(cell, Adh, Adh0, cp, Nadh, k_s, fTh, dt, rng):
 
     return Adh, Adh0
 
-def detach(cell, cell0, Adh, Adh0, cp, cp0,
-            Nadh, k_b, k_f, k_s, alpha, a, dt, rng):
+def detach(cell, cell0, Adh, Adh0, cp0,
+            k_b, k_f, alpha, a, dt, rng):
 
     ind = np.arange(Adh.shape[0])[np.all(Adh!=-1e8,axis=1)]
 
@@ -347,7 +487,7 @@ def detach(cell, cell0, Adh, Adh0, cp, cp0,
         k_x = k_b - (k_b - k_f)*(x0+a)/(2*a)
 
         dis = sqrt(np.sum((Adh[i]+cell[:2]-Adh0[i])**2.))
-        off_rate = k_x*exp(alpha*dis*0.5/(4*a))
+        off_rate = k_x*exp(alpha*dis/(2*a))
 
         #detach adhesion site
         if (rng.random() < off_rate*dt):

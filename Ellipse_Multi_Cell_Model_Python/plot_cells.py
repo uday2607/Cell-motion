@@ -23,10 +23,11 @@ def plot_ellipses(cells, cparams, Adh, Adh0, a, b, t):
     ells_out = []
     ells_in = []
     liness = []
-    x_min = 0
-    x_max = 0
-    y_min = 0
-    y_max = 0
+    X = []
+    Y = []
+    U = []
+    V = []
+    C = [1]*(cells.shape[0]//3)
 
     for i in range(cells.shape[0]//3):
         temp_ell = create_ellipse(cells[3*i:3*i+2],
@@ -36,14 +37,11 @@ def plot_ellipses(cells, cparams, Adh, Adh0, a, b, t):
                     (cparams[4*i]/2,cparams[4*i+1]/2),cparams[4*i+2])
         ells_in.append(temp_ell)
 
-        if (x_min > cells[3*i]):
-            x_min = cells[3*i]
-        if (x_max <= cells[3*i]):
-            x_max = cells[3*i]
-        if (y_min > cells[3*i+1]):
-            y_min = cells[3*i+1]
-        if (y_max <= cells[3*i+1]):
-            y_max = cells[3*i+1]
+        #Polarity vector
+        X.append(cells[3*i])
+        Y.append(cells[3*i+1])
+        U.append(cparams[4*i]*math.cos(cparams[4*i+2]*math.pi/180))
+        V.append(cparams[4*i]*math.sin(cparams[4*i+2]*math.pi/180))
 
         ind = np.arange(Adh.shape[1])[np.all(Adh[i]!=-1e8,axis=1)]
 
@@ -68,12 +66,17 @@ def plot_ellipses(cells, cparams, Adh, Adh0, a, b, t):
         patch = Polygon(verts.T, color = 'red', alpha = 0.8)
         ax.add_patch(patch)
 
+    #Polarity vector
+    ax.quiver(*np.array([X, Y]), np.array(U), np.array(V), units='xy', angles="xy", scale=1)
 
     lc = mc.LineCollection(liness, colors="black", linewidths=1)
     ax.add_collection(lc)
-    x = [i[0] for j in liness for i in j]
-    y = [i[1] for j in liness for i in j]
-    ax.scatter(x, y, color="black", s=1)
+    x1 = [j[0][0] for j in liness]
+    y1 = [j[0][1] for j in liness]
+    x2 = [j[1][0] for j in liness]
+    y2 = [j[1][1] for j in liness]
+    ax.scatter(x1, y1, color="orange", s=4)
+    ax.scatter(x2, y2, color="green", s=4)
 
     multiplier = 5.0
     for axis, setter in [(ax.xaxis, ax.set_xlim), (ax.yaxis, ax.set_ylim)]:
