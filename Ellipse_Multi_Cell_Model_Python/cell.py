@@ -37,12 +37,12 @@ def preset(L, a, b, Num):
     cparams = np.zeros(Num*4)
     Ovlaps = np.zeros((Num, Num)) - 1e8
 
-    ind = 0
-    x, y, theta = (0, 0, 180)
+    ind = 1
+    x, y, theta = (0, 0, 0)
     cells[3*ind:(3*ind+3)] = np.array([x, y, 0])
     cparams[4*ind:(4*ind+4)] = np.array([a, b, theta, 0])
 
-    ind = 1
+    ind = 0
     x, y, theta = (-2, -7, 45)
     cells[3*ind:(3*ind+3)] = np.array([x, y, 0])
     cparams[4*ind:(4*ind+4)] = np.array([a, b, theta, 0])

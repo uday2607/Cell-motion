@@ -124,7 +124,7 @@ def rotation_and_shift(cells_, cell_p, cparams_, Adh_):
 
     return cells, cparams, Adh    
 
-def contraction(cells_, cparams_, Ovlaps_, Adh_, Adh0_, lamda, tau, dt, T_S, a, b,
+def contraction(cells_, cparams_, Ovlaps_, Adh_, Adh0_, lamda, tau, dt, T_S,
                 k_out_out, k_in_out, k_in_in, k_s):
 
     cells = np.array(cells_)
@@ -141,6 +141,10 @@ def contraction(cells_, cparams_, Ovlaps_, Adh_, Adh0_, lamda, tau, dt, T_S, a, 
         exit(1)
 
     for i in range(cells.shape[0]//3):
+
+        if cparams[4*i+3] == -1:
+            print("Cell {} is not contracted".format(i))
+            continue
         
         #compute tension due to other cells
         T = compute_tension(cells, i, cparams, Ovlaps, Adh, Adh0,
@@ -188,16 +192,21 @@ def solve_center(vals, a, b, theta, h, k, xc, yc):
 
     x, y = vals 
 
+    if theta > np.pi:
+        theta = -2*np.pi + theta
+
     return [((x-h)*cos(theta)+(y-k)*sin(theta))**2/a**2+
             ((x-h)*sin(theta)-(y-k)*cos(theta))**2/b**2 - 1,
-            y-yc-tan(theta)*(x-xc)]
+            np.arctan2(y-yc, x-xc)-theta]
 
 def protrusion(cells, num, Adh, Adh0, cparams, 
-                Nadh, a, b, k_plus, dt, rng):
+                Nadh, a, b, k_plus, k_out_out, k_in_out, k_in_in, dt, tau, rng):
 
     # Make copies of array
+    cells_ = np.array(cells)
+    cparams_ = np.array(cparams)
     cell = np.array(cells[3*num:3*num+3])
-    cp = np.array(cparams[4*num:4*num+4])            
+    cp = np.array(cparams[4*num:4*num+4])          
 
     # indices of adhesions
     ind = np.arange(Adh.shape[0])[np.all(Adh !=-1e8,axis=1)]
@@ -215,9 +224,6 @@ def protrusion(cells, num, Adh, Adh0, cparams,
         ad = ind[np.argmax(shortest_distance(Adh[ind],
                     a1, b1, c1))]
 
-        #reset the phase 
-        cp[3] = 0
-
         #Calculate the new position of the center
         #(The left most point should intersect the cell)
         theta = cp[2]*pi/180
@@ -227,56 +233,70 @@ def protrusion(cells, num, Adh, Adh0, cparams,
         aval, bval = a, b
         args = (aval, bval, theta, h, k, xc, yc)
         xc, yc = fsolve(solve_center, cell[:2], args=args)
+        cells_[3*num:3*num+2] = np.array([xc, yc])
+        cparams_[4*num] = aval
 
-        #create ellipses
-        ell_i_in = create_ellipse((xc, yc), 
-                    (aval/2, bval/2), theta)
-        ell_i_out = create_ellipse((xc, yc), 
-                    (aval, bval), theta)
+        # Find overlap indices
+        Ovlaps = np.zeros((Adh.shape[0], Adh.shape[0]))
+        Ovlaps = find_overlaps(cells, cparams, Ovlaps)
 
         # Check if protruded cell overlaps      
-        if one_cell_overlap(ell_i_in, ell_i_out, 
-                    num, cells, cparams):
+        if (overlap_energy(cells_, cparams_, num, Ovlaps,
+        k_out_out, k_in_out, k_in_in)[0] > 0):
 
             #Find the correct value of 'a'
             a_max = a
             a_min = cp[0]
+            aval = (a_max + a_min)*0.5
 
             #Iterate till a value is found
-            while (a_max - a_min > 1e-4):
-                aval = (a_max - a_min)/2
+            while (abs(a_max - a_min) > 1e-8):
                 xc, yc = cell[:2]
                 args = (aval, bval, theta, h, k, xc, yc)
                 xc, yc = fsolve(solve_center, cell[:2], args=args)
+                cells_[3*num:3*num+2] = np.array([xc, yc])
+                cparams_[4*num] = aval
 
-                #create ellipses
-                ell_i_in = create_ellipse((xc, yc), 
-                    (aval/2, bval/2), theta)
-                ell_i_out = create_ellipse((xc, yc), 
-                    (aval, bval), theta)
+                # Find overlap indices
+                Ovlaps = np.zeros((Adh.shape[0], Adh.shape[0]))
+                Ovlaps = find_overlaps(cells, cparams, Ovlaps)
 
                 #check if this cell overlaps
-                if one_cell_overlap(ell_i_in, ell_i_out, 
-                    num, cells, cparams):
+                if (overlap_energy(cells_, cparams_, num, Ovlaps,
+                    k_out_out, k_in_out, k_in_in)[0] > 0):
                     a_max = aval 
                     a_min = a_min
+                    aval = (a_max + a_min)*0.5
+                    print("Right", abs(a_max - a_min))
                 else:
                     a_max = a_max
-                    a_min = aval    
+                    a_min = aval
+                    aval = (a_max + a_min)*0.5
+                    print("Left", abs(a_max - a_min))
 
-            #Update the coordinates
-            cell[:2] = np.array([xc, yc])
-
+            #check if the cell remains in the contracted phase
+            if (abs(aval - cp[0]) > 1e-8):
+                #contraction phase
+                cp[3] = 0
+            elif cp[3] != -1:
+                #no contraction phase
+                cp[3] = -1
+            else:
+                #Don't update 'a'                        
+                return cell, cp, Adh, Adh0
+                
         else:
             #Update the coordinates
             cell[:2] = np.array([xc, yc])
+            cp[3] = 0
+            cp[0] = aval
 
         #Translate all adhesion sites to new cell
         h = aval - cparams[4*num]
         cp, Adh = virtual_extension(cp, Adh, h)    
 
         #Check if any adhesions are inside
-        ell = create_ellipse(cell[:2], cp[:2], theta)
+        ell = create_ellipse(cell[:2], cp[:2], theta*180/pi)
         for i in ind:
             #inside the ellipse
             xad, yad = Adh[i] + cells[3*num:3*num+2] - cell[:2]
@@ -290,7 +310,7 @@ def protrusion(cells, num, Adh, Adh0, cparams,
         indn = np.arange(Adh.shape[0])[np.all(Adh ==-1e8,axis=1)]
 
         #Check if any other adhesion is possible
-        if indn.shape != 0:
+        if (((indn.shape != 0) and (cparams[4*num+3] == 0))):
             #create a adhesion in the front of the cell
             x, y = aval, 0.0
             xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
@@ -311,7 +331,7 @@ def protrusion(cells, num, Adh, Adh0, cparams,
                 rho = rng.uniform(0, 1)
 
                 #In the system frame of reference
-                x = a*sqrt(rho)*cos(phi)
+                x = cp[0]*sqrt(rho)*cos(phi)
                 y = b*sqrt(rho)*sin(phi)
 
                 if (rng.random() < k_plus*dt):
@@ -330,7 +350,7 @@ def protrusion(cells, num, Adh, Adh0, cparams,
     else:
         # When there are no adhesions, the cell
         # protrudes so that overlap energy is minimized
-        theta = cp[2]*pi/180
+        theta = cp[2]
         xc, yc = cell[:2]
         aval, bval = a, b
 
@@ -368,49 +388,59 @@ def protrusion(cells, num, Adh, Adh0, cparams,
                     a_max = a_max
                     a_min = aval    
 
-            #Update phase and a
+            #check if the cell remains in the contracted phase
+            if (abs(aval - cp[0]) > 1e-4):
+                #contraction phase
+                cp[3] = 0
+            elif cp[3] != -1:
+                #no contraction phase
+                cp[3] = -1
+            else:
+                #Don't update 'a'                        
+                return cell, cp, Adh, Adh0        
+
+            #Update a
             cp[0] = aval
-            cp[3] = 0
 
-            #completely new adhesions
-            Adh = np.zeros((Nadh, 2)) - 1e8
-            Adh0 = np.zeros((Nadh, 2)) - 1e8
+            if (cparams[4*num+3] == 0):
+                Adh = np.zeros((Nadh, 2)) - 1e8
+                Adh0 = np.zeros((Nadh, 2)) - 1e8
 
-            #Front and back points must be connected
-            #front
-            x, y = aval, 0.0
-            xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
-            yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
-            Adh0[0] = np.array([xp, yp]) + cell[:2]
-            Adh[0] = np.array([xp, yp])
+                #Front and back points must be connected
+                #front
+                x, y = aval, 0.0
+                xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
+                yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
+                Adh0[0] = np.array([xp, yp]) + cell[:2]
+                Adh[0] = np.array([xp, yp])
 
-            #back
-            x, y = -aval, 0.0
-            xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
-            yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
-            Adh0[1] = np.array([xp, yp]) + cell[:2]
-            Adh[1] = np.array([xp, yp])
+                #back
+                x, y = -aval, 0.0
+                xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
+                yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
+                Adh0[1] = np.array([xp, yp]) + cell[:2]
+                Adh[1] = np.array([xp, yp])
 
-            n = 2
-            for i in range(Nadh-2):
-        
-                phi = rng.uniform(0, float(2*pi))
-                rho = rng.uniform(0, 1)
+                n = 2
+                for i in range(Nadh-2):
+                
+                    phi = rng.uniform(0, float(2*pi))
+                    rho = rng.uniform(0, 1)
 
-                #In the system frame of reference
-                x = a*sqrt(rho)*cos(phi)
-                y = b*sqrt(rho)*sin(phi)
+                    #In the system frame of reference
+                    x = cp[0]*sqrt(rho)*cos(phi)
+                    y = b*sqrt(rho)*sin(phi)
 
-                if (rng.random() < k_plus*dt):
-                    #Transform into ellipse
-                    xp = (x*cos(pi/180*cp[2]) -
-                            y*sin(pi/180*cp[2]))
-                    yp = (x*sin(pi/180*cp[2]) +
-                            y*cos(pi/180*cp[2]))
+                    if (rng.random() < k_plus*dt):
+                        #Transform into ellipse
+                        xp = (x*cos(pi/180*cp[2]) -
+                                y*sin(pi/180*cp[2]))
+                        yp = (x*sin(pi/180*cp[2]) +
+                                y*cos(pi/180*cp[2]))
 
-                    #Store adhesions
-                    Adh0[i] = np.array([xp, yp]) + cell[:+2]
-                    Adh[i] = np.array([xp, yp])   
+                        #Store adhesions
+                        Adh0[i] = np.array([xp, yp]) + cell[:+2]
+                        Adh[i] = np.array([xp, yp])   
 
         else:
             #No adhesions and no overlaps
@@ -418,44 +448,46 @@ def protrusion(cells, num, Adh, Adh0, cparams,
             cp[0] = a
             cp[3] = 0
 
-            #completely new adhesions
-            Adh = np.zeros((Nadh, 2)) - 1e8
-            Adh0 = np.zeros((Nadh, 2)) - 1e8
-
-            #Front and back points must be connected
-            #front
-            x, y = a, 0.0
-            xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
-            yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
-            Adh0[0] = np.array([xp, yp]) + cell[:2]
-            Adh[0] = np.array([xp, yp])
-
-            #back
-            x, y = -a, 0.0
-            xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
-            yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
-            Adh0[1] = np.array([xp, yp]) + cell[:2]
-            Adh[1] = np.array([xp, yp])
-
-            n = 2
-            for i in range(Nadh-2):
-                phi = rng.uniform(0, float(2*pi))
-                rho = rng.uniform(0, 1)
-
-                #In the system frame of reference
-                x = a*sqrt(rho)*cos(phi)
-                y = b*sqrt(rho)*sin(phi)
-
-                if (rng.random() < k_plus*dt):
-                    #Transform into ellipse
-                    xp = (x*cos(pi/180*cp[2]) -
-                            y*sin(pi/180*cp[2]))
-                    yp = (x*sin(pi/180*cp[2]) +
-                            y*cos(pi/180*cp[2]))
-
-                    #Store adhesions
-                    Adh0[ind, i] = np.array([xp, yp]) + cell[:+2]
-                    Adh[ind, i] = np.array([xp, yp])
+            #Completely new adhesions only if phase time > 3
+            if (cparams[4*num+3] > 3):
+                Adh = np.zeros((Nadh, 2)) - 1e8
+                Adh0 = np.zeros((Nadh, 2)) - 1e8
+    
+                #Front and back points must be connected
+                #front
+                x, y = cp[0], 0.0
+                xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
+                yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
+                Adh0[0] = np.array([xp, yp]) + cell[:2]
+                Adh[0] = np.array([xp, yp])
+    
+                #back
+                x, y = -cp[0], 0.0
+                xp = (x*cos(pi/180*cp[2]) - y*sin(pi/180*cp[2]))
+                yp = (x*sin(pi/180*cp[2]) + y*cos(pi/180*cp[2]))
+                Adh0[1] = np.array([xp, yp]) + cell[:2]
+                Adh[1] = np.array([xp, yp])
+    
+                n = 2
+                for i in range(Nadh-2):
+                
+                    phi = rng.uniform(0, float(2*pi))
+                    rho = rng.uniform(0, 1)
+    
+                    #In the system frame of reference
+                    x = cp[0]*sqrt(rho)*cos(phi)
+                    y = b*sqrt(rho)*sin(phi)
+    
+                    if (rng.random() < k_plus*dt):
+                        #Transform into ellipse
+                        xp = (x*cos(pi/180*cp[2]) -
+                                y*sin(pi/180*cp[2]))
+                        yp = (x*sin(pi/180*cp[2]) +
+                                y*cos(pi/180*cp[2]))
+    
+                        #Store adhesions
+                        Adh0[i] = np.array([xp, yp]) + cell[:+2]
+                        Adh[i] = np.array([xp, yp])
                              
     return cell, cp, Adh, Adh0
 
