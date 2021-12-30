@@ -244,7 +244,7 @@ def shortest_distance(points, a, b, c):
 #Protrusion function
 @nb.jit(nopython = True, nogil = True)
 def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
-               T_S, a, b, k_s, k_out_out, k_in_out,
+               T_S, lamda, k_s, k_out_out, k_in_out,
                k_in_in, dt, tau):
 
     #Sanity check

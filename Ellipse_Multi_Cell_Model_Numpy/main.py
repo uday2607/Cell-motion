@@ -59,7 +59,7 @@ for t in range(6*(tau+tau//3+1)):
             print('p')
             cells[3*num:(3*num+3)], cparams[4*num:(4*num+4)], \
             Adh[num] = Adh_funcs.protrusion(cells, num, Adh, Adh0, \
-                                    cparams, Ovlaps, T_S, a, b, k_s, \
+                                    cparams, Ovlaps, T_S, lamda, k_s, \
                                     k_out_out, k_in_out, k_in_in, dt, tau)
 
         else:
