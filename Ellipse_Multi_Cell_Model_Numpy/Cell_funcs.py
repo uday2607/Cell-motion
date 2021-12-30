@@ -32,14 +32,14 @@ def preset(a, b, Num):
     y = 0
     theta = 0
     cells[3*ind:(3*ind+3)] = np.array([x, y, 0])
-    cparams[4*ind:(4*ind+4)] = np.array([a, b, theta, 0])
+    cparams[4*ind:(4*ind+4)] = np.array([a, b, theta, 1])
 
     ind = 0
     x = -2
     y = -7
-    theta = -45*pi/180
+    theta = 45*pi/180
     cells[3*ind:(3*ind+3)] = np.array([x, y, 0])
-    cparams[4*ind:(4*ind+4)] = np.array([a, b, theta, 0])
+    cparams[4*ind:(4*ind+4)] = np.array([a, b, theta, 1])
 
     return cells, cparams, Ovlaps
 
@@ -56,12 +56,12 @@ def random_cells(L, a, b, Num):
     while (ind < Num):
         x = uniform_double(0, L, 1)[0]
         y = uniform_double(0, L, 1)[0]
-        theta = uniform_double(0, 2*pi, 1)[0]                
+        theta = uniform_double(0, 2*pi, 1)[0]
 
         # check for collisions
         if noCollision(cells, ind, a, b, x, y, theta):
             cells[3*ind:(3*ind+3)] = np.array((x, y, 0))
-            cparams[4*ind:(4*ind+4)] = np.array((a, b, theta, 0))
+            cparams[4*ind:(4*ind+4)] = np.array((a, b, theta, 1))
             ind += 1
 
     return cells, cparams, Ovlaps
@@ -80,4 +80,4 @@ def find_overlaps(cells, cparams, Ovlaps):
                 Ovlaps[i][j] = 1
                 Ovlaps[j][i] = 1
 
-    return Ovlaps  
+    return Ovlaps

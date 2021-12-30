@@ -15,7 +15,7 @@ def create_ellipse(center, lengths, angle=0):
     """
     circ = Point(center).buffer(1, resolution=1000)
     ell = affinity.scale(circ, lengths[0], lengths[1])
-    ellr = affinity.rotate(ell, angle)
+    ellr = affinity.rotate(ell, angle*180/math.pi)
     return ellr
 
 def plot_ellipses(cells, cparams, Adh, Adh0, a, b, t):
@@ -40,8 +40,8 @@ def plot_ellipses(cells, cparams, Adh, Adh0, a, b, t):
         #Polarity vector
         X.append(cells[3*i])
         Y.append(cells[3*i+1])
-        U.append(cparams[4*i]*math.cos(cparams[4*i+2]*math.pi/180))
-        V.append(cparams[4*i]*math.sin(cparams[4*i+2]*math.pi/180))
+        U.append(cparams[4*i]*math.cos(cparams[4*i+2]))
+        V.append(cparams[4*i]*math.sin(cparams[4*i+2]))
 
         ind = np.arange(Adh.shape[1])[np.all(Adh[i]!=-1e8,axis=1)]
 

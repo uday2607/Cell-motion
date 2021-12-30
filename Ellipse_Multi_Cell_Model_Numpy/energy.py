@@ -7,16 +7,23 @@ import numba as nb
 def adhesion_energy(cells, num, Adh, Adh0, k_s):
 
     ad_energy = 0
+    fx = 0
+    fy = 0
 
     ind = np.arange(Adh.shape[1])[np.logical_and(
-          Adh[0, :] != -1e8, Adh[1, :] != -1e8)]
-    dtheta = cells[3*num+2]
-    fx = -((cos(dtheta)*Adh[num, ind, 0]-sin(dtheta)*Adh[num, ind, 1] +
-            cells[3*num] - Adh0[num, ind, 0]))
-    fy = -((sin(dtheta)*Adh[num, ind, 0]+cos(dtheta)*Adh[num, ind, 1] +
-            cells[3*num+1] - Adh0[num, ind, 1]))
+        Adh[num, :, 0] != -1e8, Adh[num, :, 1] != -1e8)]
 
-    ad_energy = 0.5*k_s*np.sum(fx**2 + fy**2)
+    dtheta = cells[3*num+2]
+
+    for i in ind:
+        fx = -(np.cos(dtheta)*Adh[num, i, 0]-np.sin(dtheta)*Adh[num, i, 1] +
+                cells[3*num] - Adh0[num, i, 0])
+        fy = -(np.sin(dtheta)*Adh[num, i, 0]+np.cos(dtheta)*Adh[num, i, 1] +
+                cells[3*num+1] - Adh0[num, i, 1])
+
+        ad_energy += 0.5*k_s*(fx**2 + fy**2)
+
+    #ad_energy = 0.5*k_s*np.sum(fx**2 + fy**2)
 
     return ad_energy
 
@@ -70,7 +77,7 @@ def overlap_energy(cells, cparams, num, Ovlaps,
                 oval_energy += 0.5*k_in_out*polygon_area(intersection)
             intersection = ellipse_intersection(ell_i_in, ell_j_in)
             if intersection.shape[0] != 0:
-                oval_energy -= 0.5*k_in_in*polygon_area(intersection)        
+                oval_energy -= 0.5*k_in_in*polygon_area(intersection)
 
     return oval_energy
 
@@ -92,7 +99,7 @@ def total_oval_energy(cells, cparams, Ovlaps,
                     E = overlap_energy(cells, cparams, num, Ovlaps,
                                 k_out_out, k_in_out, k_in_in)
                     Eovlaps[num, i] = E
-                    Eovlaps[i, num] = E  
+                    Eovlaps[i, num] = E
             total_oval_energy += np.sum(Eovlaps[num])
 
     return total_oval_energy
@@ -111,7 +118,8 @@ def virtual_contraction(cparam_, Adh_, h):
     # Update a
     cparam[0] -= h
 
-    ind = np.arange(Adh.shape[0])[np.all(Adh!=-1e8,axis=1)]
+    ind = np.arange(Adh.shape[0])[np.logical_and(
+        Adh[:, 0] != -1e8, Adh[:, 1] != -1e8)]
     x, y = Adh[ind, 0], Adh[ind, 1]
     theta = (cparam[2])
 
@@ -136,7 +144,8 @@ def virtual_extension(cparam_, Adh_, h):
     # Update a
     cparam[0] += h
 
-    ind = np.arange(Adh.shape[0])[np.all(Adh!=-1e8,axis=1)]
+    ind = np.arange(Adh.shape[0])[np.logical_and(
+        Adh[:, 0] != -1e8, Adh[:, 1] != -1e8)]
     x, y = Adh[ind, 0], Adh[ind, 1]
     theta = (cparam[2])
 
@@ -161,44 +170,45 @@ def compute_tension(cells_, num, cparams, Ovlaps_, Adh_, Adh0, k_out_out,
     step = 1e-4
 
     #Extension - a + h increase
-    cp[4*num:4*num+4], Adh[num] = virtual_extension(cp_[4*num:4*num+4], 
+    cp[4*num:4*num+4], Adh[num] = virtual_extension(cp_[4*num:4*num+4],
                                 Adh_[num], step)
-    ce3, _ = overlap_energy(cells, cp, num, Ovlaps,
+    ce3 = overlap_energy(cells, cp, num, Ovlaps,
                         k_out_out, k_in_out, k_in_in)
-    ae3 = adhesion_energy(cells, cp, num, Adh, Adh0, k_s)
+    ae3 = adhesion_energy(cells, num, Adh, Adh0, k_s)
     e3 = ce3 + ae3
 
     #Extension - a + 2h increase
-    cp[4*num:4*num+4], Adh[num] = virtual_extension(cp[4*num:4*num+4], 
+    cp[4*num:4*num+4], Adh[num] = virtual_extension(cp[4*num:4*num+4],
                                 Adh[num], step)
-    ce4, _ = overlap_energy(cells, cp, num, Ovlaps,
+    ce4 = overlap_energy(cells, cp, num, Ovlaps,
                         k_out_out, k_in_out, k_in_in)
-    ae4 = adhesion_energy(cells, cp, num, Adh, Adh0, k_s)
-    e4 = ce4 + ae4                 
+    ae4 = adhesion_energy(cells, num, Adh, Adh0, k_s)
+    e4 = ce4 + ae4
 
     #Contraction - a - h decrease
-    cp[4*num:4*num+4], Adh[num] = virtual_contraction(cp_[4*num:4*num+4], 
+    cp[4*num:4*num+4], Adh[num] = virtual_contraction(cp_[4*num:4*num+4],
                                 Adh_[num], step)
-    ce2, _ = overlap_energy(cells, cp, num, Ovlaps,
+    ce2 = overlap_energy(cells, cp, num, Ovlaps,
                         k_out_out, k_in_out, k_in_in)
-    ae2 = adhesion_energy(cells, cp, num, Adh, Adh0, k_s)
+    ae2 = adhesion_energy(cells, num, Adh, Adh0, k_s)
     e2 = ce2 + ae2
 
     #Contraction - a - 2h decrease
-    cp[4*num:4*num+4], Adh[num] = virtual_contraction(cp[4*num:4*num+4], 
+    cp[4*num:4*num+4], Adh[num] = virtual_contraction(cp[4*num:4*num+4],
                                 Adh[num], step)
-    ce1, _ = overlap_energy(cells, cp, num, Ovlaps,
+    ce1 = overlap_energy(cells, cp, num, Ovlaps,
                         k_out_out, k_in_out, k_in_in)
-    ae1 = adhesion_energy(cells, cp, num, Adh, Adh0, k_s)
+    ae1 = adhesion_energy(cells, num, Adh, Adh0, k_s)
     e1 = ce1 + ae1
 
     #five point difference formula
-    return (e1 - 8*e2 + 8*e3 - e4)/(12*step)
+    #(Force = -dU/dx)
+    return -1*(e1 - 8*e2 + 8*e3 - e4)/(12*step)
 
 #Total Energy
 @nb.jit(nopython = True, nogil = True)
 def total_energy(cells, cparams, Ovlaps, Adh, Adh0,
-                k_s, k_out_out, k_in_out, k_in_in):           
+                k_s, k_out_out, k_in_out, k_in_in):
 
     return (total_adhesion_energy(cells, Adh, Adh0, k_s) +
             total_oval_energy(cells, cparams, Ovlaps,
@@ -229,9 +239,9 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
 
         cells0[i] = cells[i] + 2*step
         e4 = total_energy(cells0, cparams, Ovlaps, Adh, Adh0,
-                k_s, k_out_out, k_in_out, k_in_in)    
+                k_s, k_out_out, k_in_out, k_in_in)
 
-        grad[i] = (e1 - 8*e2 + 8*e3 - e4)/(12*step)   
+        grad[i] = (e1 - 8*e2 + 8*e3 - e4)/(12*step)
 
     return grad
 
@@ -243,5 +253,3 @@ def total_energy_and_grad(cells, cparams, Ovlaps, Adh, Adh0,
                 k_s, k_out_out, k_in_out, k_in_in),
                 total_energy_and_grad(cells, cparams, Ovlaps, Adh, Adh0,
                 k_s, k_out_out, k_in_out, k_in_in)])
-
-        
