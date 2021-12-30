@@ -69,10 +69,12 @@ for t in range(6*(tau+tau//3+1)):
                                     num, cparams, Adh, Adh0, Nadh,
                                     k_plus, dt)
             cparams[4*num+3] = 1
+            cells0 = cells.copy()
 
     #minimize energy
     args = (cparams, Ovlaps, Adh, Adh0,
             k_s, k_out_out, k_in_out, k_in_in)
+    print(Adh[0][Adh[0] < -1e5], Adh0[0][Adh0[0] < -1e5])        
     cells_ = cells.copy()
     cells = minimize(energy.total_energy, cells, args=args,
                     method='L-BFGS-B').x

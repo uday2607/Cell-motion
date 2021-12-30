@@ -59,7 +59,7 @@ def one_cell_random_adh(a, b, cells, ind, cparams, Adh, Adh0,
 
     #Indices of adhesion sites not bonded yet
     adh_ind = np.arange(Adh.shape[1])[np.logical_and(
-        Adh[ind, :, 0] == -1e8, Adh[ind, :, 0] == -1e8)]
+        Adh[ind, :, 0] == -1e8, Adh[ind, :, 1] == -1e8)]
 
     if adh_ind.shape[0] != 0:
         n = 2
@@ -115,15 +115,15 @@ def rotation_and_shift(cells, cell_p, cparams, Adh):
         if ind.shape[0] != 0:
             for n in ind:
 
+                #Shift the adhesions
+                Adh[i, n, 0] += -(cells[3*i] - cell_p[3*i])
+                Adh[i, n, 1] += -(cells[3*i+1] - cell_p[3*i+1])
+
                 #rotate all the adhesions
                 x, y = Adh[i, n, 0], Adh[i, n, 1]
                 dtheta = cells[3*i+2]
                 Adh[i, n, 0] = np.cos(dtheta)*x - np.sin(dtheta)*y
                 Adh[i, n, 1] = np.sin(dtheta)*x + np.cos(dtheta)*y
-
-                #Shift the adhesions
-                Adh[i, n, 0] += -(cells[3*i] - cell_p[3*i])
-                Adh[i, n, 1] += -(cells[3*i+1] - cell_p[3*i+1])
 
         #rotate theta
         cparams[4*i+2] += cells[3*i+2]
@@ -209,7 +209,7 @@ def contraction(cells, num, cparams, Ovlaps, Adh, Adh0, lamda, tau,
 def solve_center(vals, fvec, args):
 
     #Function arguments
-    #0, 1, 2, 3, 4, 5, 6, 7
+    #0, 1, 2, 3, 4, 5, 6
     #a, b, theta, h, k, xc, yc
 
     #Variables
@@ -221,11 +221,11 @@ def solve_center(vals, fvec, args):
         args[2] = -2*np.pi + args[2]
 
     #func vals
-    fvec[0] = (((vals[0]-args[4])*cos(args[2])+
-                (vals[1]-args[5])*sin(args[3]))**2/args[0]**2+
-              ((vals[0]-args[4])*sin(args[2])-
-                (vals[1]-args[5])*cos(args[3]))**2/args[1]**2 - 1)
-    fvec[1] = np.arctan2(vals[1]-args[7], vals[0]-args[6])-args[2]
+    fvec[0] = (((vals[0]-args[3])*cos(args[2])+
+                (vals[1]-args[4])*sin(args[2]))**2/args[0]**2+
+              ((vals[0]-args[3])*sin(args[2])-
+                (vals[1]-args[4])*cos(args[2]))**2/args[1]**2 - 1)
+    fvec[1] = np.arctan2(vals[1]-args[6], vals[0]-args[5])-args[2]
 
 # address in memory to solve_center
 solve_center_ptr = solve_center.address
@@ -281,8 +281,9 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
         if ind.shape[0] != 0:
 
             #Find the rear most adhesion
-            ad = ind[np.argmax(shortest_distance(Adh[num, ind],
-                    a1, b1, c1))]
+            adh_c = Adh[num]
+            ad = np.argmax(shortest_distance(adh_c[ind],
+                    a1, b1, c1))
 
             #Find the new center of the cell
             theta = cparams[4*num+2]
@@ -294,6 +295,7 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
             #(Solving for new center)
             x_, y_ = xsol
             dis = sqrt((cells[3*num] - x_)**2. + (cells[3*num+1] - y_)**2.)
+            print(dis, fvec, success, info)
             xn, yn = cells[3*num:3*num+2] + 3*dis/tau*np.array([cos(theta),
                                                                 sin(theta)])
 
@@ -325,8 +327,9 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
         if ind.shape[0] != 0:
 
             #Find the rear most adhesion
-            ad = ind[np.argmax(shortest_distance(Adh[num, ind],
-                    a1, b1, c1))]
+            adh_c = Adh[num]
+            ad = np.argmax(shortest_distance(adh_c[ind],
+                    a1, b1, c1))
 
             #Find the new center of the cell
             theta = cparams[4*num+2]
@@ -338,6 +341,7 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
             #(Solving for new center)
             x_, y_ = xsol
             dis = sqrt((cells[3*num] - x_)**2. + (cells[3*num+1] - y_)**2.)
+            print(dis, fvec, success, info)
             xn, yn = cells[3*num:3*num+2] + 3*dis/tau*np.array([cos(theta),
                                                                 sin(theta)])
 
@@ -394,8 +398,11 @@ def detach(cell, cell0, Adh, Adh0, cp0,
         #detachment rate
         k_x = k_b - (k_b - k_f)*(x0+a)/(2*a)
 
-        dis = sqrt(np.sum((Adh[i]+cell[:2]-Adh0[i])**2.))
-        off_rate = k_x*exp(alpha*dis/(2*a))
+        dis = sqrt(np.sum((np.around(Adh[i]+cell[:2]-Adh0[i], 4))**2.))
+        try:
+            off_rate = k_x*exp(alpha*dis/(2*a))
+        except:
+            print(Adh[i], cell[:2], Adh0[i])
 
         #detach adhesion site
         if (rng.random() < off_rate*dt):
