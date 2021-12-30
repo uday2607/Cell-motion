@@ -282,8 +282,8 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
 
             #Find the rear most adhesion
             adh_c = Adh[num]
-            ad = np.argmax(shortest_distance(adh_c[ind],
-                    a1, b1, c1))
+            ad = ind[np.argmax(shortest_distance(adh_c[ind],
+                    a1, b1, c1))]
 
             #Find the new center of the cell
             theta = cparams[4*num+2]
@@ -328,8 +328,8 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
 
             #Find the rear most adhesion
             adh_c = Adh[num]
-            ad = np.argmax(shortest_distance(adh_c[ind],
-                    a1, b1, c1))
+            ad = ind[np.argmax(shortest_distance(adh_c[ind],
+                    a1, b1, c1))]
 
             #Find the new center of the cell
             theta = cparams[4*num+2]

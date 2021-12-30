@@ -40,12 +40,12 @@ def preset(L, a, b, Num):
     ind = 1
     x, y, theta = (0, 0, 0)
     cells[3*ind:(3*ind+3)] = np.array([x, y, 0])
-    cparams[4*ind:(4*ind+4)] = np.array([a, b, theta, 0])
+    cparams[4*ind:(4*ind+4)] = np.array([a, b, theta, 1])
 
     ind = 0
     x, y, theta = (-2, -7, 45)
     cells[3*ind:(3*ind+3)] = np.array([x, y, 0])
-    cparams[4*ind:(4*ind+4)] = np.array([a, b, theta, 0])
+    cparams[4*ind:(4*ind+4)] = np.array([a, b, theta, 1])
 
     return cells, cparams, Ovlaps
 
@@ -66,7 +66,7 @@ def random_cells(L, a, b, Num, rng):
         # check for collisions
         if noCollision(cells, ind, a, b, x, y, theta):
             cells[3*ind:(3*ind+3)] = np.array([x, y, 0])
-            cparams[4*ind:(4*ind+4)] = np.array([a, b, theta, 0])
+            cparams[4*ind:(4*ind+4)] = np.array([a, b, theta, 1])
             ind += 1
 
     return cells, cparams, Ovlaps
@@ -100,5 +100,5 @@ def one_cell_overlap(ell_i_in, ell_i_out, num, cells, cparams):
             if (ell_i_out.intersects(ell_j_in.boundary)
                 or ell_i_in.intersects(ell_j_out.boundary)):
                 return True
-    
-    return False            
+
+    return False

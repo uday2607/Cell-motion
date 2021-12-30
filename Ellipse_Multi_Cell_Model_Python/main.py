@@ -21,8 +21,8 @@ k_out_out = 15
 k_in_out = k_out_out*10
 k_in_in = k_in_out*10
 fThreshold = 0.0005
-k_b = 0.025
-k_f = 0.001
+k_b = 0.04
+k_f = 0.0025
 alpha = 25
 a_min = a
 for i in range(tau):
@@ -37,45 +37,64 @@ cparams0 = cparams.copy()
 Adh0, Adh = adhesions.random_adhesions(L, a, b, cells, cparams, Nadh,
                                        k_plus, dt, rng)
 
-for t in range(6*tau):
-    print(t)
+for t in range(6*(tau+tau//3+1)):
+    print("Time = ", t)
 
     #plot in the beginning
     plot_cells.plot_ellipses(cells, cparams, Adh, Adh0, a, b, t)
 
-    #Find the overlap indices
-    Ovlaps = cell.find_overlaps(cells, cparams, Ovlaps)
+    #update cells
+    for num in range(Num):
+        #cell extension
+        if cparams[4*num+3] > 0:
+            #Contract
+            print('c')
+            cparams[4*num:(4*num+4)], Adh[num] = adhesions.contraction(cells, \
+                                            num, cparams, Ovlaps, Adh, Adh0, \
+                                            lamda, tau, dt, T_S, \
+                                            k_out_out, k_in_out, k_in_in, k_s)
 
-    # Cells contract
-    cparams, Adh = adhesions.contraction(cells, cparams, Ovlaps, Adh, Adh0,
-                          lamda, tau, dt, T_S,
-                          k_out_out, k_in_out, k_in_in, k_s)
+            #New adhesions at much smaller rate
+            Adh[num], Adh0[num] = adhesions.one_cell_random_adh(a, b, cells,
+                                    num, cparams, Adh, Adh0, Nadh,
+                                    k_plus/(5*cparams[4*num+3]+1), dt, rng)
+        elif cparams[4*num+3] < 0:
+            #Protrusion
+            print('p')
+            cells[3*num:(3*num+3)], cparams[4*num:(4*num+4)], \
+            Adh[num] = adhesions.protrusion(cells, num, Adh, Adh0, \
+                                    cparams, Ovlaps, T_S, lamda, k_s, \
+                                    k_out_out, k_in_out, k_in_in, dt, tau)
+
+            #New adhesions at much smaller rate
+            Adh[num], Adh0[num] = adhesions.one_cell_random_adh(a, b, cells,
+                                    num, cparams, Adh, Adh0, Nadh,
+                                    k_plus/(3*abs(cparams[4*num+3])+1), dt, rng)
+        else:
+            #New bonds
+            print('n')
+            cparams[4*num+3] = 1
+            cells0 = cells.copy()
 
     #minimize energy
     args = (cparams, Ovlaps, Adh, Adh0,
             k_s, k_out_out, k_in_out, k_in_in)
-
     cells_ = cells.copy()
     cells = minimize(energy.total_energy, cells, args=args,
                     method='L-BFGS-B').x
 
     #rotate and shift the adhesions
-    cells, cparams, Adh = adhesions.rotation_and_shift(cells, cells_,
-                            cparams, Adh)
+    cells, cparams, Adh, Adh0 = adhesions.rotation_and_shift(cells, cells_,
+                            cparams, Adh, Adh0)
 
-    #update the bonds
+    # Update bonds
     for num in range(Num):
-        #cell extension
-        if cparams[4*num] <= a_min:
-            #Protrusion
-            cells[3*num:(3*num+3)], cparams[4*num:(4*num+4)], Adh[num], Adh0[num] = adhesions.protrusion(cells, num, Adh[num],
-                                                Adh0[num], cparams, Nadh, a, b, k_plus, k_out_out, k_in_out, k_in_in, dt, tau, rng)
-        elif cparams[4*num+3] == 1:
+        if cparams[4*num+3] == 2:
             #first phase
             Adh[num], Adh0[num] = adhesions.mature(cells[3*num:(3*num+3)],
                                     Adh[num], Adh0[num],
                                     k_s, fThreshold, dt, rng)
-        else:
+        elif cparams[4*num+3] != 1 and cparams[4*num+3] != 2 and cparams[4*num+3] != 0:
             #detach
             Adh[num], Adh0[num] = adhesions.detach(cells[3*num:(3*num+3)],
                                     cells0[3*num:(3*num+3)],
