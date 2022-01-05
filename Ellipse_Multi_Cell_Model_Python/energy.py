@@ -172,7 +172,7 @@ def compute_tension(cells_, num, cparams, Ovlaps_, Adh_, Adh0, k_out_out,
     e1 = ce1 + ae1
 
     #five point difference formula
-    return (e1 - 8*e2 + 8*e3 - e4)/(12*step)
+    return -1*(e1 - 8*e2 + 8*e3 - e4)/(12*step)
 
 def total_energy(cells, cparams, Ovlaps, Adh, Adh0,
                 k_s, k_out_out, k_in_out, k_in_in):

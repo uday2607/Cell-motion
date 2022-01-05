@@ -115,15 +115,15 @@ def rotation_and_shift(cells, cell_p, cparams, Adh):
         if ind.shape[0] != 0:
             for n in ind:
 
-                #Shift the adhesions
-                Adh[i, n, 0] += -(cells[3*i] - cell_p[3*i])
-                Adh[i, n, 1] += -(cells[3*i+1] - cell_p[3*i+1])
-
                 #rotate all the adhesions
                 x, y = Adh[i, n, 0], Adh[i, n, 1]
                 dtheta = cells[3*i+2]
                 Adh[i, n, 0] = np.cos(dtheta)*x - np.sin(dtheta)*y
                 Adh[i, n, 1] = np.sin(dtheta)*x + np.cos(dtheta)*y
+
+                #Shift the adhesions
+                #Adh[i, n, 0] += -(cells[3*i] - cell_p[3*i])
+                #Adh[i, n, 1] += -(cells[3*i+1] - cell_p[3*i+1])
 
         #rotate theta
         cparams[4*i+2] += cells[3*i+2]
@@ -301,13 +301,16 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
 
             #Shift the adhesion sites and center
             for i in ind:
-                x, y = (Adh[num, i, 0] + cells[3*num] - xn,
-                        Adh[num, i, 1] + cells[3*num+1] - yn)
+                x, y = (Adh[num, i, 0], Adh[num, i, 1])
 
+                #Shift the adhesions inside and translate the center
                 Adh[num, i, 0] = (x + c*cos(theta)*cos(theta)*x +
                                   c*sin(theta)*cos(theta)*y)
                 Adh[num, i, 1] = (y + c*sin(theta)*cos(theta)*x +
                                   c*sin(theta)*sin(theta)*y)
+
+                #Adh[num, i, 0], Adh[num, i, 1] = (Adh[num, i, 0] + xc - xn,
+                #        Adh[num, i, 1] + yc - yn)
 
             cells[3*num], cells[3*num+1] = xn, yn
 
@@ -347,13 +350,16 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
 
             #Shift the adhesion sites and center
             for i in ind:
-                x, y = (Adh[num, i, 0] + cells[3*num] - xn,
-                        Adh[num, i, 1] + cells[3*num+1] - yn)
+                x, y = (Adh[num, i, 0], Adh[num, i, 1])
 
+                #Shift the adhesions inside and translate the center
                 Adh[num, i, 0] = (x + c*cos(theta)*cos(theta)*x +
                                   c*sin(theta)*cos(theta)*y)
                 Adh[num, i, 1] = (y + c*sin(theta)*cos(theta)*x +
                                   c*sin(theta)*sin(theta)*y)
+
+                #Adh[num, i, 0], Adh[num, i, 1] = (Adh[num, i, 0] + xc - xn,
+                #        Adh[num, i, 1] + yc - yn)
 
             cells[3*num], cells[3*num+1] = xn, yn
     else:
