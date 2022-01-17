@@ -2,19 +2,21 @@ from ellipses import *
 from random_funcs import *
 
 @nb.jit(nopython = True, nogil = True)
-def noCollision(cells, ind, a, b, x, y, theta):
+def noCollision(cells, cparams, ind, a, b, x, y, theta):
 
     if ind == 0:
         return True
 
-    ell1 = create_ellipse(np.array((x,y)), np.array((a,b)), theta)
-
+    x1, y1 = x, y  
+    a1, b1 = a, b
+    t1 = theta 
     for i in range(ind):
-        ell2 = create_ellipse(cells[3*ind:(3*ind+2)], np.array((a,b)),
-                               cells[3*ind+2])
+        x2, y2 = cells[3*i:(3*i+2)]            
+        a2, b2 = a, b
+        t2 = cparams[4*i+2]          
 
-        intersection = ellipse_intersection(ell1, ell2)
-        if intersection.shape[0] == 0:
+        if ellipse_intersection(x1, y1, a1, b1, t1,
+                x2, y2, a2, b2, t2).shape[0] == 0:
             return 0
 
     return 1
@@ -28,18 +30,33 @@ def preset(a, b, Num):
     Ovlaps = np.zeros((Num, Num)) - 1e8
 
     ind = 1
-    x = 0
-    y = 0
+    x = 20
+    y = 20
     theta = 0
     cells[3*ind:(3*ind+3)] = np.array([x, y, 0])
     cparams[4*ind:(4*ind+4)] = np.array([a, b, theta, 1])
 
     ind = 0
-    x = -2
-    y = -7
-    theta = 45*pi/180
+    x = 20-2
+    y = 20-7
+    theta = pi/4
     cells[3*ind:(3*ind+3)] = np.array([x, y, 0])
     cparams[4*ind:(4*ind+4)] = np.array([a, b, theta, 1])
+
+    return cells, cparams, Ovlaps
+
+@nb.jit(nopython = True, nogil = True)
+def linear_preset(a, b, Num):
+
+    # x y dtheta
+    cells = np.zeros(Num*3)
+    # a b theta phase
+    cparams = np.zeros(Num*4)
+    Ovlaps = np.zeros((Num, Num)) - 1e8
+
+    for ind in range(Num):
+        cells[3*ind:(3*ind+3)] = np.array([20+2*(a-1)*ind, 10, 0])
+        cparams[4*ind:(4*ind+4)] = np.array([a, b, 0, 1])
 
     return cells, cparams, Ovlaps
 
@@ -59,7 +76,7 @@ def random_cells(L, a, b, Num):
         theta = uniform_double(0, 2*pi, 1)[0]
 
         # check for collisions
-        if noCollision(cells, ind, a, b, x, y, theta):
+        if noCollision(cells, cparams, ind, a, b, x, y, theta):
             cells[3*ind:(3*ind+3)] = np.array((x, y, 0))
             cparams[4*ind:(4*ind+4)] = np.array((a, b, theta, 1))
             ind += 1
@@ -69,14 +86,19 @@ def random_cells(L, a, b, Num):
 @nb.jit(nopython = True, nogil = True)
 def find_overlaps(cells, cparams, Ovlaps):
 
-    for i in range(cells.shape[0]//3):
-        ell_i = create_ellipse((cells[3*i],cells[3*i+1]), (
-                                cparams[4*i],cparams[4*i+1]), cparams[4*i+2])
-        for j in range(i+1, cells.shape[0]//3):
-            ell_j = create_ellipse((cells[3*j],cells[3*j+1]), (
-                                    cparams[4*j],cparams[4*j+1]), cparams[4*j+2])
+    Ovlaps = np.zeros(Ovlaps.shape)
 
-            if ellipse_intersection(ell_i, ell_j).shape[0] != 0:
+    for i in range(cells.shape[0]//3):
+        x1, y1 = cells[3*i], cells[3*i+1]    
+        a1, b1 = cparams[4*i], cparams[4*i+1]
+        t1 = cparams[4*i+2]                  
+        for j in range(i+1, cells.shape[0]//3):
+            x2, y2 = cells[3*j], cells[3*j+1]              
+            a2, b2 = cparams[4*j], cparams[4*j+1]
+            t2 = cparams[4*j+2]     
+
+            if check_ell_intersection(x1, y1, a1, b1, t1,
+                                    x2, y2, a2, b2, t2):
                 Ovlaps[i][j] = 1
                 Ovlaps[j][i] = 1
 

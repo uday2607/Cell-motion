@@ -49,6 +49,22 @@ def preset(L, a, b, Num):
 
     return cells, cparams, Ovlaps
 
+def preset_linear(L, a, b, Num):
+
+    # x y dtheta
+    cells = np.zeros(Num*3)
+    # a b theta phase
+    cparams = np.zeros(Num*4)
+    Ovlaps = np.zeros((Num, Num)) - 1e8
+
+    for ind in range(Num):
+        x, y, theta = ((2*a-2)*ind, 0, 0)
+        cells[3*ind:(3*ind+3)] = np.array([x, y, 0])
+        cparams[4*ind:(4*ind+4)] = np.array([a, b, theta, 1])
+
+    return cells, cparams, Ovlaps    
+
+
 def random_cells(L, a, b, Num, rng):
 
     # x y dtheta

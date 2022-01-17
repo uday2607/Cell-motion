@@ -6,8 +6,8 @@ import numpy as np
 import plot_cells
 import math
 
-a = 6
-b = 3
+a = 4
+b = 2
 L = 40
 Num = 1
 Nadh = 64
@@ -29,9 +29,16 @@ for i in range(tau):
     a_min -= a_min*lamda*dt/tau
 rng = np.random.default_rng()
 
+options = {}
+options['maxcor'] = 100
+options['maxfun'] = 2e6
+options['maxiter'] = 2e6
+options['maxls'] = 100
+
 # Spawn Cells and Adhesions
 cells, cparams, Ovlaps = cell.random_cells(L, a, b, Num, rng)
 #cells, cparams, Ovlaps = cell.preset(L, a, b, Num)
+#cells, cparams, Ovlaps = cell.preset_linear(L, a, b, Num)
 cells0 = cells.copy()
 cparams0 = cparams.copy()
 Adh0, Adh = adhesions.random_adhesions(L, a, b, a_min, cells, cparams, Nadh,
@@ -97,7 +104,7 @@ for t in range(6*(tau+tau//10+1)+1):
             k_s, k_out_out, k_in_out, k_in_in)
     cells_ = cells.copy()
     cells = minimize(energy.total_energy, cells+np.ones(3*Num), args=args,
-                    method='L-BFGS-B', jac='3-point').x        
+                    method='L-BFGS-B', jac='3-point', options=options).x        
 
     #rotate and shift the adhesions
     cells, cparams, Adh, Adh0 = adhesions.rotation_and_shift(cells, cells_,

@@ -57,7 +57,7 @@ def plot_ellipses(cells, cparams, Adh, Adh0, a, b, t):
     for e in polygonize(ells_out):
         verts = np.array(e.exterior.coords.xy)
         patch = Polygon(verts.T, facecolor = 'blue', alpha = 0.5, linestyle = "-",
-                        edgecolor="black", linewidth = 4)
+                        edgecolor="black", linewidth = 2)
         ax.add_patch(patch)
 
     #ells_in = unary_union(ells_in)

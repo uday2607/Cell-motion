@@ -39,45 +39,73 @@ def total_adhesion_energy(cells, Adh, Adh0, k_s):
     return ad_energy
 
 @nb.jit(nopython = True, nogil = True)
-def overlap_energy(cells, cparams, num, Ovlaps,
+def pair_overlap_energy(cells, cparams, num, j,
                     k_out_out, k_in_out, k_in_in):
 
     oval_energy = 0
 
-    #cells overlap
-    if np.any(Ovlaps[num] != -1e8):
+    theta_i = cparams[4*num+2]+cells[3*num+2]
+    theta_j = cparams[4*j+2]+cells[3*j+2]
+    theta_c = np.arctan2(cells[3*num+1]-cells[3*j+1], cells[3*num]-cells[3*j])
 
-        ell_i_out = create_ellipse((cells[3*num],cells[3*num+1]), (
-                        cparams[4*num],cparams[4*num+1]),
-                        cparams[4*num+2]+cells[3*num+2])
-        ell_i_in = create_ellipse((cells[3*num],cells[3*num+1]), (0.5*
-                        cparams[4*num],0.5*cparams[4*num+1]),
-                        cparams[4*num+2]+cells[3*num+2])
+    #find the overlap area
+    intersection = ellipse_intersection(cells[3*num],cells[3*num+1],cparams[4*num],cparams[4*num+1],theta_i,
+                                        cells[3*j],cells[3*j+1],cparams[4*j],cparams[4*j+1],theta_j)
+    if intersection.shape[0] != 0:
+        oval_energy -= 0.5*k_out_out*((1.+0.5*np.cos(2.*(theta_c-theta_i)))*(1.+0.5*np.cos(2.*(theta_c-theta_j))))*polygon_area(intersection)
+        #in out
+        intersection = ellipse_intersection(cells[3*num],cells[3*num+1],cparams[4*num]/2,cparams[4*num+1]/2,theta_i,
+                                        cells[3*j],cells[3*j+1],cparams[4*j],cparams[4*j+1],theta_j)
+        if intersection.shape[0] != 0:
+            oval_energy += 0.5*k_in_out*((1.+0.5*np.cos(2.*(theta_c-theta_i)))*(1.+0.5*np.cos(2.*(theta_c-theta_j))))*polygon_area(intersection)
+        #out in
+        intersection = ellipse_intersection(cells[3*num],cells[3*num+1],cparams[4*num],cparams[4*num+1],theta_i,
+                                        cells[3*j],cells[3*j+1],cparams[4*j]/2,cparams[4*j+1]/2,theta_j)
+        if intersection.shape[0] != 0:
+            oval_energy += 0.5*k_in_out*((1.+0.5*np.cos(2.*(theta_c-theta_i)))*(1.+0.5*np.cos(2.*(theta_c-theta_j))))*polygon_area(intersection)
+            #in in
+            intersection = ellipse_intersection(cells[3*num],cells[3*num+1],cparams[4*num]/2,cparams[4*num+1]/2,theta_i,
+                                        cells[3*j],cells[3*j+1],cparams[4*j]/2,cparams[4*j+1]/2,theta_j)
+            if intersection.shape[0] != 0:
+                oval_energy += 0.5*k_in_in*((1.+0.5*np.cos(2.*(theta_c-theta_i)))*(1.+0.5*np.cos(2.*(theta_c-theta_j))))*polygon_area(intersection)
 
-        ind = np.arange(Ovlaps.shape[0])[Ovlaps[num] == 1]
+    return oval_energy
 
-        #for each cell, find the overlap energy
+@nb.jit(nopython = True, nogil = True)
+def overlap_energy(cells, cparams, num, Ovlaps,
+                k_out_out, k_in_out, k_in_in):
+
+    oval_energy = 0
+
+    if np.any(Ovlaps[num] == 1):
+        ind = np.arange(cells.shape[0]//3)[Ovlaps[num] == 1]
+
+        theta_i = cparams[4*num+2]+cells[3*num+2]
+
         for j in ind:
-            ell_j_out = create_ellipse((cells[3*j],cells[3*j+1]), (
-                            cparams[4*j],cparams[4*j+1]),
-                            cparams[4*j+2]+cells[3*j+2])
-            ell_j_in = create_ellipse((cells[3*j],cells[3*j+1]), (0.5*
-                            cparams[4*j],0.5*cparams[4*j+1]),
-                            cparams[4*j+2]+cells[3*j+2])
+            theta_j = cparams[4*j+2]+cells[3*j+2]
+            theta_c = np.arctan2(cells[3*num+1]-cells[3*j+1], cells[3*num]-cells[3*j])
 
             #find the overlap area
-            intersection = ellipse_intersection(ell_i_out, ell_j_out)
+            intersection = ellipse_intersection(cells[3*num],cells[3*num+1],cparams[4*num],cparams[4*num+1],theta_i,
+                                                cells[3*j],cells[3*j+1],cparams[4*j],cparams[4*j+1],theta_j)
             if intersection.shape[0] != 0:
-                oval_energy -= 0.5*k_out_out*polygon_area(intersection)
-            intersection = ellipse_intersection(ell_i_in, ell_j_out)
-            if intersection.shape[0] != 0:
-                oval_energy += 0.5*k_in_out*polygon_area(intersection)
-            intersection = ellipse_intersection(ell_i_out, ell_j_in)
-            if intersection.shape[0] != 0:
-                oval_energy += 0.5*k_in_out*polygon_area(intersection)
-            intersection = ellipse_intersection(ell_i_in, ell_j_in)
-            if intersection.shape[0] != 0:
-                oval_energy -= 0.5*k_in_in*polygon_area(intersection)
+                oval_energy -= 0.5*k_out_out*((1.+0.5*np.cos(2.*(theta_c-theta_i)))*(1.+0.5*np.cos(2.*(theta_c-theta_j))))*polygon_area(intersection)
+                #in out
+                intersection = ellipse_intersection(cells[3*num],cells[3*num+1],cparams[4*num]/2,cparams[4*num+1]/2,theta_i,
+                                                cells[3*j],cells[3*j+1],cparams[4*j],cparams[4*j+1],theta_j)
+                if intersection.shape[0] != 0:
+                    oval_energy += 0.5*k_in_out*((1.+0.5*np.cos(2.*(theta_c-theta_i)))*(1.+0.5*np.cos(2.*(theta_c-theta_j))))*polygon_area(intersection)
+                #out in
+                intersection = ellipse_intersection(cells[3*num],cells[3*num+1],cparams[4*num],cparams[4*num+1],theta_i,
+                                                cells[3*j],cells[3*j+1],cparams[4*j]/2,cparams[4*j+1]/2,theta_j)
+                if intersection.shape[0] != 0:
+                    oval_energy += 0.5*k_in_out*((1.+0.5*np.cos(2.*(theta_c-theta_i)))*(1.+0.5*np.cos(2.*(theta_c-theta_j))))*polygon_area(intersection)
+                    #in in
+                    intersection = ellipse_intersection(cells[3*num],cells[3*num+1],cparams[4*num]/2,cparams[4*num+1]/2,theta_i,
+                                                cells[3*j],cells[3*j+1],cparams[4*j]/2,cparams[4*j+1]/2,theta_j)
+                    if intersection.shape[0] != 0:
+                        oval_energy += 0.5*k_in_in*((1.+0.5*np.cos(2.*(theta_c-theta_i)))*(1.+0.5*np.cos(2.*(theta_c-theta_j))))*polygon_area(intersection)
 
     return oval_energy
 
@@ -92,11 +120,11 @@ def total_oval_energy(cells, cparams, Ovlaps,
     Eovlaps = np.zeros(Ovlaps.shape)
 
     for num in range(cells.shape[0]//3):
-        if np.any(Ovlaps[num]):
+        if np.any(Ovlaps[num] == 1):
             ind = np.arange(cells.shape[0]//3)[Ovlaps[num] == 1]
             for i in ind:
                 if Eovlaps[num, i] == 0:
-                    E = overlap_energy(cells, cparams, num, Ovlaps,
+                    E = pair_overlap_energy(cells, cparams, num, i,
                                 k_out_out, k_in_out, k_in_in)
                     Eovlaps[num, i] = E
                     Eovlaps[i, num] = E
@@ -109,8 +137,8 @@ def total_oval_energy(cells, cparams, Ovlaps,
 def virtual_contraction(cparam_, Adh_, h):
 
     # Make copies of array
-    Adh = np.array(Adh_)
-    cparam = np.array(cparam_)
+    Adh = Adh_.copy()
+    cparam = cparam_.copy()
 
     # Update the contractions
     c = h/cparam[0]
@@ -135,8 +163,8 @@ def virtual_contraction(cparam_, Adh_, h):
 def virtual_extension(cparam_, Adh_, h):
 
     # Make copies of array
-    Adh = np.array(Adh_)
-    cparam = np.array(cparam_)
+    Adh = Adh_.copy()
+    cparam = cparam_.copy()
 
     # Update the extension
     c = h/cparam[0]
@@ -161,11 +189,11 @@ def virtual_extension(cparam_, Adh_, h):
 def compute_tension(cells_, num, cparams, Ovlaps_, Adh_, Adh0, k_out_out,
                     k_in_out, k_in_in, k_s):
 
-    cp_ = np.array(cparams)
-    cp = np.array(cparams)
-    cells = np.array(cells_)
-    Ovlaps = np.array(Ovlaps_)
-    Adh = np.array(Adh_)
+    cp_ = cparams.copy()
+    cp = cparams.copy()
+    cells = cells_.copy()
+    Ovlaps = Ovlaps_.copy()
+    Adh = Adh_.copy()
 
     step = 1e-4
 
@@ -203,7 +231,7 @@ def compute_tension(cells_, num, cparams, Ovlaps_, Adh_, Adh0, k_out_out,
 
     #five point difference formula
     #(Force = -dU/dx)
-    return -1*(e1 - 8*e2 + 8*e3 - e4)/(12*step)
+    return -(e1 - 8*e2 + 8*e3 - e4)/(12*step)
 
 #Total Energy
 @nb.jit(nopython = True, nogil = True)
@@ -221,7 +249,7 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
     #Vary every parameter by some small step and find
     #the partial differential
     grad = np.empty(cells.shape)
-    cells0 = np.array(cells)
+    cells0 = cells.copy()
     step = 1e-4
 
     for i in range(cells.shape[0]):

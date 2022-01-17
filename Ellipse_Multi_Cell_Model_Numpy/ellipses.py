@@ -1,3 +1,4 @@
+from matplotlib.pyplot import boxplot
 import numpy as np
 import numba as nb
 from math import sin, cos, tan, pi, exp, sqrt
@@ -13,12 +14,12 @@ def create_ellipse(center, lengths, angle=0):
     ell = np.empty((N, 2))
 
     #Cell boundary coordinates
-    x_ = lengths[0]*np.cos(phi) + center[0]
-    y_ = lengths[1]*np.sin(phi) + center[1]
+    x = lengths[0]*np.cos(phi)
+    y = lengths[1]*np.sin(phi)
 
     #Transform the ellipse
-    ell[:, 0] = x_*np.cos(angle) - y_*np.sin(angle)
-    ell[:, 1] = x_*np.sin(angle) + y_*np.cos(angle)
+    ell[:, 0] = x*np.cos(angle) - y*np.sin(angle) + center[0]
+    ell[:, 1] = x*np.sin(angle) + y*np.cos(angle) + center[1]
 
     return ell
 
@@ -120,13 +121,34 @@ def clip(subject_polygon,clipping_polygon):
     return final_polygon
 
 @nb.jit(nopython = True, nogil = True)
-def ellipse_intersection(ell1, ell2):
-    intersection = clip(ell1, ell2)
+def check_ell_intersection(x1, y1, a1, b1, t1,
+                         x2, y2, a2, b2, t2):
 
-    #Check if there is an intersection or not
-    if intersection.shape[0] == 0:
+    ell = create_ellipse((x1, y1), (a1, b1), t1)
+    X, Y = ell[:, 0], ell[:, 1]
+
+    xt = (X - x2)*cos(t2) + (Y - y2)*sin(t2)
+    yt = -(X - x2)*sin(t2) + (Y - y2)*cos(t2)
+    check = xt**2/a2**2 + yt**2/b2**2
+    inside = np.any(check <= 1)
+
+    return inside
+
+@nb.jit(nopython = True, nogil = True)
+def ellipse_intersection(x1, y1, a1, b1, t1,
+                         x2, y2, a2, b2, t2):
+
+    #check if two ellipses intersect first
+    bool_intersect = check_ell_intersection(x1, y1, a1, b1, t1,
+                                            x2, y2, a2, b2, t2)                                          
+
+    if bool_intersect == False:
         #Zero area -> No intersection
         return np.empty((0, 2))
+    else:
+        ell1 = create_ellipse((x1, y1), (a1, b1), (t1))
+        ell2 = create_ellipse((x2, y2), (a2, b2), (t2))
+        intersection = clip(ell1, ell2)
 
     return intersection
 """"""

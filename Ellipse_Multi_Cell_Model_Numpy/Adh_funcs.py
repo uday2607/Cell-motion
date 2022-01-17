@@ -1,8 +1,9 @@
 from Cell_funcs import *
 from energy import *
 #From: https://github.com/Nicholaswogan/NumbaMinpack
-from NumbaMinpack import lmdif, minpack_sig
-from numba import cfunc
+#from NumbaMinpack import lmdif, minpack_sig
+#from numba import cfunc
+from scipy.optimize import fsolve
 
 """New Adhesions"""
 @nb.jit(nopython = True, nogil = True)
@@ -11,97 +12,103 @@ def random_adhesions(a, b, cells, cparams,
 
     Adh = np.zeros((cells.shape[0]//3, Nadh, 2)) - 1e8
     Adh0 = np.zeros((cells.shape[0]//3, Nadh, 2)) - 1e8
+    cAdh0 = np.zeros((cells.shape[0]//3, Nadh, 2)) - 1e8
+    cp0 = np.zeros((cells.shape[0]//3, Nadh, 2)) - 1e8
 
     for ind in range(cells.shape[0]//3):
-        n = 2
-        #Front and back points must be connected
-        #front
-        x = a
-        xp = x*cos(cparams[4*ind+2])
-        yp = x*sin(cparams[4*ind+2])
-        Adh0[ind, 0] = np.array([xp, yp]) + cells[3*ind:(3*ind+2)]
-        Adh[ind, 0] = np.array([xp, yp])
 
-        #back
-        x = -a
-        xp = x*cos(cparams[4*ind+2])
-        yp = x*sin(cparams[4*ind+2])
-        Adh0[ind, 1] = np.array([xp, yp]) + cells[3*ind:(3*ind+2)]
-        Adh[ind, 1] = np.array([xp, yp])
+        #Random numbers 
+        phi = gaussian(0, pi, Nadh)
+        rho = uniform_double(0, 1, Nadh)
 
-        for i in range(Nadh-2):
+        #In the system frame of reference
+        x = cparams[4*ind]*np.sqrt(rho)*np.cos(phi)
+        y = cparams[4*ind+1]*np.sqrt(rho)*np.sin(phi)
 
-            phi = uniform_double(0, float(2*pi), 1)[0]
-            rho = uniform_double(0, 1, 1)[0]
+        #Transform into ellipse
+        xp = (x*np.cos(cparams[4*ind+2]) -
+                        y*np.sin(cparams[4*ind+2]))
+        yp = (x*np.sin(cparams[4*ind+2]) +
+                        y*np.cos(cparams[4*ind+2]))
 
-            #In the system frame of reference
-            x = a*sqrt(rho)*cos(phi)
-            y = b*sqrt(rho)*sin(phi)
+        rands = uniform_double(0, 1, Nadh)
 
-            if (uniform_double(0, 1, 1)[0] < k_plus*dt):
-                #Transform into ellipse
-                xp = (x*cos(cparams[4*ind+2]) -
-                                y*sin(cparams[4*ind+2]))
-                yp = (x*sin(cparams[4*ind+2]) +
-                                y*cos(cparams[4*ind+2]))
+        #indices of adhesions to be formed
+        adh_ind = np.arange(Nadh)[rands < k_plus*dt]
 
-                #Store adhesions
-                #From ground reference
-                Adh0[ind, i] = np.array([xp, yp]) + cells[3*ind:(3*ind+2)]
-                #From centre of cell(GFR)
-                Adh[ind, i] = np.array([xp, yp])
+        #Store adhesions
+        #From ground reference
+        Adh0_ = Adh0[ind].copy()
+        Adh_ = Adh[ind].copy()
+        cAdh0_ = cAdh0[ind].copy()
+        cp0_ = cp0[ind].copy()
+        Adh0_[adh_ind, 0] = xp[adh_ind] + cells[3*ind]
+        Adh0_[adh_ind, 1] = yp[adh_ind] + cells[3*ind+1]
+        #From centre of cell(GFR)
+        Adh_[adh_ind, 0] = xp[adh_ind]
+        Adh_[adh_ind, 1] = yp[adh_ind]
+        cAdh0_[adh_ind] = Adh_[adh_ind]
+        cp0_[adh_ind, 0] = cparams[4*ind]
+        cp0_[adh_ind, 1] = cparams[4*ind+2]
+        Adh[ind]= Adh_ 
+        Adh0[ind] = Adh0_
+        cAdh0[ind] = cAdh0_
+        cp0[ind] = cp0_
 
-    return Adh0, Adh
+    return Adh0, Adh, cAdh0, cp0
 
 @nb.jit(nopython = True, nogil = True)
-def one_cell_random_adh(a, b, cells, ind, cparams, Adh, Adh0,
-                    Nadh, k_plus, dt):
+def one_cell_random_adh(a, b, cells, ind, cparams, Adh, Adh0, cAdh0, cp0,
+                    Nadh, k_plus, dt, flag):
 
     #Indices of adhesion sites not bonded yet
     adh_ind = np.arange(Adh.shape[1])[np.logical_and(
         Adh[ind, :, 0] == -1e8, Adh[ind, :, 1] == -1e8)]
 
-    if adh_ind.shape[0] != 0:
-        n = 2
-        #Front and back points must be connected
-        #front
-        x = a
-        xp = x*cos(cparams[4*ind+2])
-        yp = x*sin(cparams[4*ind+2])
-        Adh0[ind, adh_ind[0]] = np.array([xp, yp]) + cells[3*ind:(3*ind+2)]
-        Adh[ind, adh_ind[0]] = np.array([xp, yp])
+    #Random numbers 
+    if flag:
+        phi = gaussian(0, pi/4, Nadh)
+        rho = uniform_double(0, 1, Nadh)
+    else:
+        phi = gaussian(0, pi, Nadh)
+        rho = uniform_double(0, 1, Nadh)
 
-        #back
-        x = -a
-        xp = x*cos(cparams[4*ind+2])
-        yp = x*sin(cparams[4*ind+2])
-        Adh0[ind, adh_ind[1]] = np.array([xp, yp]) + cells[3*ind:(3*ind+2)]
-        Adh[ind, adh_ind[1]] = np.array([xp, yp])
+    #In the system frame of reference
+    x = cparams[4*ind]*np.sqrt(rho)*np.cos(phi)
+    y = cparams[4*ind+1]*np.sqrt(rho)*np.sin(phi)
 
-        if adh_ind.shape[0] > 2:
-            for i in adh_ind:
+    #Transform into ellipse
+    xp = (x*np.cos(cparams[4*ind+2]) -
+            y*np.sin(cparams[4*ind+2]))
+    yp = (x*np.sin(cparams[4*ind+2]) +
+            y*np.cos(cparams[4*ind+2]))
 
-                phi = uniform_double(0, float(2*pi), 1)[0]
-                rho = uniform_double(0, 1, 1)[0]
+    rands = uniform_double(0, 1, adh_ind.shape[0])
 
-                #In the system frame of reference
-                x = a*sqrt(rho)*cos(phi)
-                y = b*sqrt(rho)*sin(phi)
+    #indices of adhesions to be formed
+    adh_ind = adh_ind[rands < k_plus*dt]
 
-                if (uniform_double(0, 1, 1)[0] < k_plus*dt):
-                    #Transform into ellipse
-                    xp = (x*cos(cparams[4*ind+2]) -
-                                    y*sin(cparams[4*ind+2]))
-                    yp = (x*sin(cparams[4*ind+2]) +
-                                    y*cos(cparams[4*ind+2]))
+    #Store adhesions
+    #From ground reference
+    Adh0_ = Adh0[ind].copy()
+    Adh_ = Adh[ind].copy()
+    cAdh0_ = cAdh0[ind].copy()
+    cp0_ = cp0[ind].copy()
+    Adh0_[adh_ind, 0] = xp[adh_ind] + cells[3*ind]
+    Adh0_[adh_ind, 1] = yp[adh_ind] + cells[3*ind+1]
+    #From centre of cell(GFR)
+    Adh_[adh_ind, 0] = xp[adh_ind]
+    Adh_[adh_ind, 1] = yp[adh_ind]
+    cAdh0_[adh_ind] = Adh_[adh_ind] 
+    cp0_[adh_ind, 0] = cparams[4*ind]
+    cp0_[adh_ind, 1] = cparams[4*ind+2]
+    Adh[ind]= Adh_ 
+    Adh0[ind] = Adh0_
+    cAdh0[ind] = cAdh0_
+    cp0[ind] = cp0_
+    
+    return Adh0[ind], Adh[ind], cAdh0[ind], cp0[ind]
 
-                    #Store adhesions
-                    #From ground reference
-                    Adh0[ind, i] = np.array([xp, yp]) + cells[3*ind:(3*ind+2)]
-                    #From centre of cell(GFR)
-                    Adh[ind, i] = np.array([xp, yp])
-
-    return Adh0[ind], Adh[ind]
 """"""
 
 """Rotation and shift of Adhesion sites"""
@@ -113,17 +120,14 @@ def rotation_and_shift(cells, cell_p, cparams, Adh):
             Adh[i, :, 0] != -1e8, Adh[i, :, 1] != -1e8)]
 
         if ind.shape[0] != 0:
-            for n in ind:
 
-                #rotate all the adhesions
-                x, y = Adh[i, n, 0], Adh[i, n, 1]
-                dtheta = cells[3*i+2]
-                Adh[i, n, 0] = np.cos(dtheta)*x - np.sin(dtheta)*y
-                Adh[i, n, 1] = np.sin(dtheta)*x + np.cos(dtheta)*y
-
-                #Shift the adhesions
-                #Adh[i, n, 0] += -(cells[3*i] - cell_p[3*i])
-                #Adh[i, n, 1] += -(cells[3*i+1] - cell_p[3*i+1])
+            #rotate all the adhesions
+            Adh_ = Adh[i].copy()
+            x, y = Adh_[ind, 0], Adh_[ind, 1]
+            dtheta = cells[3*i+2]
+            Adh_[ind, 0] = np.cos(dtheta)*x - np.sin(dtheta)*y
+            Adh_[ind, 1] = np.sin(dtheta)*x + np.cos(dtheta)*y
+            Adh[i] = Adh_
 
         #rotate theta
         cparams[4*i+2] += cells[3*i+2]
@@ -133,9 +137,9 @@ def rotation_and_shift(cells, cell_p, cparams, Adh):
 """"""
 
 """Contraction of cell -> contraction of Adh sites"""
-@nb.jit(nopython = True, nogil = True)
+#@nb.jit(nopython = True, nogil = True)
 def contraction(cells, num, cparams, Ovlaps, Adh, Adh0, lamda, tau,
-                dt, T_S, k_out_out, k_in_out, k_in_in, k_s):
+                dt, T_S, k_out_out, k_in_out, k_in_in, k_s, a_min):
 
     #Sanity check
     #dtheta should be zero
@@ -151,50 +155,63 @@ def contraction(cells, num, cparams, Ovlaps, Adh, Adh0, lamda, tau,
     #Tension is less than critical tension
     if (T < T_S and T > 0):
         c = lamda*dt*(1-T/T_S)/(tau)
+        c_flag = 1
 
         # Update a and phase
         cparams[4*num] -= c*cparams[4*num]
+        if cparams[4*num] < 0.8*a_min:
+            cparams[4*num] = 0.8*a_min
+            c_flag = 0
+
         cparams[4*num+3] += 1
 
         # indices of adhesions
-        ind = np.arange(Adh.shape[1])[np.logical_and(
-                Adh[num, :, 1] != -1e8, Adh[num, :, 0] != -1e8)]
-        theta = cparams[4*num+2]
+        if c_flag:
+            ind = np.arange(Adh.shape[1])[np.logical_and(
+                    Adh[num, :, 1] != -1e8, Adh[num, :, 0] != -1e8)]
+            theta = cparams[4*num+2]
 
-        for i in ind:
-            x, y = Adh[num, i, 0], Adh[num, i, 1]
+            for i in ind:
+                x, y = Adh[num, i, 0], Adh[num, i, 1]
 
-            Adh[num, i, 0] = (x - c*cos(theta)*cos(theta)*x -
-                              c*sin(theta)*cos(theta)*y)
-            Adh[num, i, 1] = (y - c*sin(theta)*cos(theta)*x -
-                              c*sin(theta)*sin(theta)*y)
+                Adh[num, i, 0] = (x - c*cos(theta)*cos(theta)*x -
+                                  c*sin(theta)*cos(theta)*y)
+                Adh[num, i, 1] = (y - c*sin(theta)*cos(theta)*x -
+                                  c*sin(theta)*sin(theta)*y)
 
     elif (T <= 0):
         # negative tension means no stalling
         c = lamda*dt/(tau)
+        c_flag = 1
 
         # Update a and phase
         cparams[4*num] -= c*cparams[4*num]
+        if cparams[4*num] < 0.8*a_min:
+            cparams[4*num] = 0.8*a_min
+            c_flag = 0
+
         cparams[4*num+3] += 1
 
         # indices of adhesions
-        ind = np.arange(Adh.shape[1])[np.logical_and(
-                Adh[num, :, 1] != -1e8, Adh[num, :, 0] != -1e8)]
-        theta = cparams[4*num+2]
-
-        for i in ind:
-            x, y = Adh[num, i, 0], Adh[num, i, 1]
-
-            Adh[num, i, 0] = (x - c*cos(theta)*cos(theta)*x -
-                              c*sin(theta)*cos(theta)*y)
-            Adh[num, i, 1] = (y - c*sin(theta)*cos(theta)*x -
-                              c*sin(theta)*sin(theta)*y)
+        if c_flag:
+            ind = np.arange(Adh.shape[1])[np.logical_and(
+                    Adh[num, :, 1] != -1e8, Adh[num, :, 0] != -1e8)]
+            theta = cparams[4*num+2]
+    
+            for i in ind:
+                x, y = Adh[num, i, 0], Adh[num, i, 1]
+    
+                Adh[num, i, 0] = (x - c*cos(theta)*cos(theta)*x -
+                                  c*sin(theta)*cos(theta)*y)
+                Adh[num, i, 1] = (y - c*sin(theta)*cos(theta)*x -
+                                  c*sin(theta)*sin(theta)*y)
     else:
         #Tension is more than critical tension
         #No shift of adhesions
 
         #Update Phase
         cparams[4*num+3] += 1
+        print(T)
 
     #Change phase if the contraction phase is over
     if cparams[4*num+3] > 0 and (cparams[4*num+3]-1) % tau == 0:
@@ -205,31 +222,17 @@ def contraction(cells, num, cparams, Ovlaps, Adh, Adh0, lamda, tau,
 
 """Protrusion of the cell -> Complicated dynamics"""
 #Helper functions
-@cfunc(minpack_sig)
-def solve_center(vals, fvec, args):
+@nb.jit(nopython = True, nogil = True)
+def solve_center(vals, a, b, theta, h, k, xc, yc):
 
-    #Function arguments
-    #0, 1, 2, 3, 4, 5, 6
-    #a, b, theta, h, k, xc, yc
+    x, y = vals
 
-    #Variables
-    #0, 1
-    #x, y
+    if theta > np.pi:
+        theta = -2*np.pi + theta
 
-    #Adjust theta so that it's in arctan2 range
-    if args[2] > np.pi:
-        args[2] = -2*np.pi + args[2]
-
-    #func vals
-    fvec[0] = (((vals[0]-args[3])*cos(args[2])+
-                (vals[1]-args[4])*sin(args[2]))**2/args[0]**2+
-              ((vals[0]-args[3])*sin(args[2])-
-                (vals[1]-args[4])*cos(args[2]))**2/args[1]**2 - 1)
-    fvec[1] = np.arctan2(vals[1]-args[6], vals[0]-args[5])-args[2]
-
-# address in memory to solve_center
-solve_center_ptr = solve_center.address
-neqs = 2
+    return [(((h+xc)-x)*np.cos(theta)+((k+yc)-y)*np.sin(theta))**2/a**2+
+            (((h+xc)-x)*np.sin(theta)-((k+yc)-y)*np.cos(theta))**2/b**2 - 1,
+            np.arctan2(y-yc, x-xc)-theta]
 
 # Function to find shortest distance from a line
 @nb.jit(nopython = True, nogil = True)
@@ -242,10 +245,10 @@ def shortest_distance(points, a, b, c):
     return d
 
 #Protrusion function
-@nb.jit(nopython = True, nogil = True)
+#@nb.jit(nopython = True, nogil = True)
 def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
                T_S, lamda, k_s, k_out_out, k_in_out,
-               k_in_in, dt, tau):
+               k_in_in, dt, tau, a):
 
     #Sanity check
     #dtheta should be zero
@@ -259,26 +262,36 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
                         k_out_out, k_in_out, k_in_in, k_s)
     #(-ve sign for Tension to account for opposite direction of gradient)
 
-    # Find the perpendicular line to semi major axis
-    a1 = -1/tan(cparams[4*num+2])
-    b1 = -1
-    c1 = (-a1*(cparams[4*num]*cos(cparams[4*num+2])) +
-         cparams[4*num]*sin(cparams[4*num+2]))
+    #Adhesion speed
+    vf = 1.0
 
     #Tension is less than critical tension
     if (T < T_S and T > 0):
-        c = lamda*dt*(1-T/T_S)/(tau//3)
+        c = lamda*dt*(1-T/T_S)/(tau//5)
+        p_flag = 1
 
         # Update a and phase
         cparams[4*num] += c*cparams[4*num]
+        if cparams[4*num] > 1.2*a:
+            cparams[4*num] = 1.2*a
+            p_flag = 0
         cparams[4*num+3] -= 1
 
         # indices of adhesions
-        ind = np.arange(Adh.shape[1])[np.logical_and(
+        if p_flag:
+            ind = np.arange(Adh.shape[1])[np.logical_and(
                 Adh[num, :, 1] != -1e8, Adh[num, :, 0] != -1e8)]
+        else:
+            ind = np.empty((0, 2))        
 
         #If there are FAs
         if ind.shape[0] != 0:
+
+            # Find the perpendicular line to semi major axis
+            a1 = -1/tan(cparams[4*num+2]+1e-8)
+            b1 = -1
+            c1 = (-a1*(cparams[4*num]*cos(cparams[4*num+2])) +
+                cparams[4*num]*sin(cparams[4*num+2]))
 
             #Find the rear most adhesion
             adh_c = Adh[num]
@@ -287,16 +300,14 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
 
             #Find the new center of the cell
             theta = cparams[4*num+2]
-            args = np.array((cparams[4*num], cparams[4*num+1], theta,
+            args = (cparams[4*num], cparams[4*num+1], theta,
                     Adh[num, ad, 0], Adh[num, ad, 1], cells[3*num],
-                    cells[3*num+1]))
-            xsol, fvec, success, info = lmdif(solve_center_ptr,
-                                    cells[3*num:3*num+2], neqs, args)
+                    cells[3*num+1])
+            xsol = fsolve(solve_center, cells[3*num:3*num+2]+np.ones(2), args=args)
             #(Solving for new center)
             x_, y_ = xsol
             dis = sqrt((cells[3*num] - x_)**2. + (cells[3*num+1] - y_)**2.)
-            print(dis, fvec, success, info)
-            xn, yn = cells[3*num:3*num+2] + 3*dis/tau*np.array([cos(theta),
+            xn, yn = cells[3*num:3*num+2] + vf*5*dis/tau*np.array([cos(theta),
                                                                 sin(theta)])
 
             #Shift the adhesion sites and center
@@ -308,26 +319,36 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
                                   c*sin(theta)*cos(theta)*y)
                 Adh[num, i, 1] = (y + c*sin(theta)*cos(theta)*x +
                                   c*sin(theta)*sin(theta)*y)
-
-                #Adh[num, i, 0], Adh[num, i, 1] = (Adh[num, i, 0] + xc - xn,
-                #        Adh[num, i, 1] + yc - yn)
 
             cells[3*num], cells[3*num+1] = xn, yn
 
     elif (T <= 0):
         # negative tension means no stalling
-        c = lamda*dt/(tau//3)
+        c = lamda*dt/(tau//5)
+        p_flag = 1
 
-        # Update a and phase
+       # Update a and phase
         cparams[4*num] += c*cparams[4*num]
+        if cparams[4*num] > 1.2*a:
+            cparams[4*num] = 1.2*a
+            p_flag = 0
         cparams[4*num+3] -= 1
 
         # indices of adhesions
-        ind = np.arange(Adh.shape[1])[np.logical_and(
+        if p_flag:
+            ind = np.arange(Adh.shape[1])[np.logical_and(
                 Adh[num, :, 1] != -1e8, Adh[num, :, 0] != -1e8)]
+        else:
+            ind = np.empty((0, 2))
 
         #If there are FAs
         if ind.shape[0] != 0:
+
+            # Find the perpendicular line to semi major axis
+            a1 = -1/tan(cparams[4*num+2]+1e-8)
+            b1 = -1
+            c1 = (-a1*(cparams[4*num]*cos(cparams[4*num+2])) +
+                cparams[4*num]*sin(cparams[4*num+2]))
 
             #Find the rear most adhesion
             adh_c = Adh[num]
@@ -336,16 +357,14 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
 
             #Find the new center of the cell
             theta = cparams[4*num+2]
-            args = np.array((cparams[4*num], cparams[4*num+1], theta,
+            args = (cparams[4*num], cparams[4*num+1], theta,
                     Adh[num, ad, 0], Adh[num, ad, 1], cells[3*num],
-                    cells[3*num+1]))
-            xsol, fvec, success, info = lmdif(solve_center_ptr,
-                                    cells[3*num:3*num+2], neqs, args)
+                    cells[3*num+1])
+            xsol = fsolve(solve_center, cells[3*num:3*num+2]+np.ones(2), args=args)
             #(Solving for new center)
             x_, y_ = xsol
             dis = sqrt((cells[3*num] - x_)**2. + (cells[3*num+1] - y_)**2.)
-            print(dis, fvec, success, info)
-            xn, yn = cells[3*num:3*num+2] + 3*dis/tau*np.array([cos(theta),
+            xn, yn = cells[3*num:3*num+2] + vf*5*dis/tau*np.array([cos(theta),
                                                                 sin(theta)])
 
             #Shift the adhesion sites and center
@@ -357,9 +376,6 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
                                   c*sin(theta)*cos(theta)*y)
                 Adh[num, i, 1] = (y + c*sin(theta)*cos(theta)*x +
                                   c*sin(theta)*sin(theta)*y)
-
-                #Adh[num, i, 0], Adh[num, i, 1] = (Adh[num, i, 0] + xc - xn,
-                #        Adh[num, i, 1] + yc - yn)
 
             cells[3*num], cells[3*num+1] = xn, yn
     else:
@@ -372,47 +388,50 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
         #If there are no adhesions, the cell won't move
 
     #Change phase if the protrusion phase is over
-    if cparams[4*num+3] < 0 and abs(cparams[4*num+3]) % (tau//3+1) == 0:
+    if cparams[4*num+3] < 0 and abs(cparams[4*num+3]) % (tau//5+1) == 0:
         cparams[4*num+3] = 0 # non -ve times -> Contraction
 
     return cells[3*num:3*num+3], cparams[4*num:(4*num+4)], Adh[num]
 
-def mature(cell, Adh, Adh0, k_s, fTh, dt, rng):
+def mature(cell, Adh, Adh0, cAdh0, cp0, k_m, fTh, dt, rng):
 
     ind = np.arange(Adh.shape[0])[np.all(Adh !=-1e8,axis=1)]
+    eps = 1e-8
 
     for i in ind:
         dis = sqrt(np.sum((Adh[i]+cell[:2]-Adh0[i])**2.))
-        off_rate = exp(-k_s*dis/fTh)
+        off_rate = k_m*exp(-dis/fTh)
 
         #detach adhesion site
-        if (rng.random() < off_rate*dt):
+        if (rng.random() < 1-off_rate*dt):
             Adh[i] = np.array([-1e8, -1e8])
             Adh0[i] = np.array([-1e8, -1e8])
+            cAdh0[i] = np.array([-1e8, -1e8])
+            cp0[i] = np.array([-1e8, -1e8])
 
-    return Adh, Adh0
+    return Adh, Adh0, cAdh0, cp0
 
-def detach(cell, cell0, Adh, Adh0, cp0,
+def detach(cell, cAdh0, cp0, Adh, Adh0,
             k_b, k_f, alpha, a, dt, rng):
 
     ind = np.arange(Adh.shape[0])[np.all(Adh!=-1e8,axis=1)]
 
     for i in ind:
-        x0 = ((Adh0[i, 0] - cell0[0])*cos(cp0[2]) +
-              (Adh0[i, 1] - cell0[1])*sin(cp0[2]))
+        x0 = ((cAdh0[i, 0])*cos(cp0[i, 1]) +
+              (cAdh0[i, 1])*sin(cp0[i, 1]))
 
         #detachment rate
-        k_x = k_b - (k_b - k_f)*(x0+a)/(2*a)
+        k_x = k_b - (k_b - k_f)*(x0+cp0[i, 0])/(2*cp0[i, 0])
 
         dis = sqrt(np.sum((np.around(Adh[i]+cell[:2]-Adh0[i], 4))**2.))
-        try:
-            off_rate = k_x*exp(alpha*dis/(2*a))
-        except:
-            print(Adh[i], cell[:2], Adh0[i])
+        #The offrate increases as cell length decreases
+        off_rate = k_x*exp(alpha*dis/(2*cp0[i, 0]))
 
         #detach adhesion site
         if (rng.random() < off_rate*dt):
             Adh[i] = np.array([-1e8, -1e8])
             Adh0[i] = np.array([-1e8, -1e8])
+            cAdh0[i] = np.array([-1e8, -1e8])
+            cp0[i] = np.array([-1e8, -1e8])
 
-    return Adh, Adh0
+    return Adh, Adh0, cAdh0, cp0
