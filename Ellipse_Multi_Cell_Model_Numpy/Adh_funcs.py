@@ -18,7 +18,7 @@ def random_adhesions(a, b, cells, cparams,
     for ind in range(cells.shape[0]//3):
 
         #Random numbers 
-        phi = gaussian(0, pi, Nadh)
+        phi = uniform_double(0, 2*pi, Nadh)
         rho = uniform_double(0, 1, Nadh)
 
         #In the system frame of reference
@@ -68,9 +68,9 @@ def one_cell_random_adh(a, b, cells, ind, cparams, Adh, Adh0, cAdh0, cp0,
     #Random numbers 
     if flag:
         phi = gaussian(0, pi/4, Nadh)
-        rho = uniform_double(0, 1, Nadh)
+        rho = uniform_double(0.5, 1, Nadh)
     else:
-        phi = gaussian(0, pi, Nadh)
+        phi = uniform_double(0, 2*pi, Nadh)
         rho = uniform_double(0, 1, Nadh)
 
     #In the system frame of reference
@@ -155,66 +155,54 @@ def contraction(cells, num, cparams, Ovlaps, Adh, Adh0, lamda, tau,
     #Tension is less than critical tension
     if (T < T_S and T > 0):
         c = lamda*dt*(1-T/T_S)/(tau)
-        c_flag = 1
 
         # Update a and phase
         cparams[4*num] -= c*cparams[4*num]
-        if cparams[4*num] < 0.8*a_min:
-            cparams[4*num] = 0.8*a_min
-            c_flag = 0
-
         cparams[4*num+3] += 1
 
         # indices of adhesions
-        if c_flag:
-            ind = np.arange(Adh.shape[1])[np.logical_and(
-                    Adh[num, :, 1] != -1e8, Adh[num, :, 0] != -1e8)]
-            theta = cparams[4*num+2]
+        ind = np.arange(Adh.shape[1])[np.logical_and(
+                Adh[num, :, 1] != -1e8, Adh[num, :, 0] != -1e8)]
+        theta = cparams[4*num+2]
 
-            for i in ind:
-                x, y = Adh[num, i, 0], Adh[num, i, 1]
+        for i in ind:
+            x, y = Adh[num, i, 0], Adh[num, i, 1]
 
-                Adh[num, i, 0] = (x - c*cos(theta)*cos(theta)*x -
-                                  c*sin(theta)*cos(theta)*y)
-                Adh[num, i, 1] = (y - c*sin(theta)*cos(theta)*x -
-                                  c*sin(theta)*sin(theta)*y)
+            Adh[num, i, 0] = (x - c*cos(theta)*cos(theta)*x -
+                              c*sin(theta)*cos(theta)*y)
+            Adh[num, i, 1] = (y - c*sin(theta)*cos(theta)*x -
+                              c*sin(theta)*sin(theta)*y)
 
     elif (T <= 0):
         # negative tension means no stalling
         c = lamda*dt/(tau)
-        c_flag = 1
 
         # Update a and phase
         cparams[4*num] -= c*cparams[4*num]
-        if cparams[4*num] < 0.8*a_min:
-            cparams[4*num] = 0.8*a_min
-            c_flag = 0
-
         cparams[4*num+3] += 1
 
         # indices of adhesions
-        if c_flag:
-            ind = np.arange(Adh.shape[1])[np.logical_and(
-                    Adh[num, :, 1] != -1e8, Adh[num, :, 0] != -1e8)]
-            theta = cparams[4*num+2]
-    
-            for i in ind:
-                x, y = Adh[num, i, 0], Adh[num, i, 1]
-    
-                Adh[num, i, 0] = (x - c*cos(theta)*cos(theta)*x -
-                                  c*sin(theta)*cos(theta)*y)
-                Adh[num, i, 1] = (y - c*sin(theta)*cos(theta)*x -
-                                  c*sin(theta)*sin(theta)*y)
+        ind = np.arange(Adh.shape[1])[np.logical_and(
+                Adh[num, :, 1] != -1e8, Adh[num, :, 0] != -1e8)]
+        theta = cparams[4*num+2]
+
+        for i in ind:
+            x, y = Adh[num, i, 0], Adh[num, i, 1]
+
+            Adh[num, i, 0] = (x - c*cos(theta)*cos(theta)*x -
+                              c*sin(theta)*cos(theta)*y)
+            Adh[num, i, 1] = (y - c*sin(theta)*cos(theta)*x -
+                              c*sin(theta)*sin(theta)*y)
     else:
         #Tension is more than critical tension
         #No shift of adhesions
 
         #Update Phase
         cparams[4*num+3] += 1
-        print(T)
+        print("Tension:", T)
 
     #Change phase if the contraction phase is over
-    if cparams[4*num+3] > 0 and (cparams[4*num+3]-1) % tau == 0:
+    if cparams[4*num+3] > 0 and cparams[4*num] < a_min:
         cparams[4*num+3] = -1 # -ve times -> Protrusion
 
     return cparams[4*num:(4*num+4)], Adh[num]
@@ -272,9 +260,6 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
 
         # Update a and phase
         cparams[4*num] += c*cparams[4*num]
-        if cparams[4*num] > 1.2*a:
-            cparams[4*num] = 1.2*a
-            p_flag = 0
         cparams[4*num+3] -= 1
 
         # indices of adhesions
@@ -329,9 +314,6 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
 
        # Update a and phase
         cparams[4*num] += c*cparams[4*num]
-        if cparams[4*num] > 1.2*a:
-            cparams[4*num] = 1.2*a
-            p_flag = 0
         cparams[4*num+3] -= 1
 
         # indices of adhesions
@@ -384,11 +366,12 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
 
         #Update Phase
         cparams[4*num+3] -= 1
+        print("Tension:", T)
 
         #If there are no adhesions, the cell won't move
 
     #Change phase if the protrusion phase is over
-    if cparams[4*num+3] < 0 and abs(cparams[4*num+3]) % (tau//5+1) == 0:
+    if cparams[4*num+3] < 0 and cparams[4*num] > a:
         cparams[4*num+3] = 0 # non -ve times -> Contraction
 
     return cells[3*num:3*num+3], cparams[4*num:(4*num+4)], Adh[num]

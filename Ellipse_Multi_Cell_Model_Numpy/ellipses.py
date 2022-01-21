@@ -9,19 +9,24 @@ from sys import exit
 def create_ellipse(center, lengths, angle=0):
 
     #Create empty array
-    N = 360
+    N = 45
     phi = -np.arange(N)*2*pi/N
-    ell = np.empty((N, 2))
+    ell_out = np.empty((N, 2))
+    ell_in = np.empty((N, 2))
 
     #Cell boundary coordinates
     x = lengths[0]*np.cos(phi)
     y = lengths[1]*np.sin(phi)
 
     #Transform the ellipse
-    ell[:, 0] = x*np.cos(angle) - y*np.sin(angle) + center[0]
-    ell[:, 1] = x*np.sin(angle) + y*np.cos(angle) + center[1]
+    ell_out[:, 0] = x*np.cos(angle) - y*np.sin(angle) + center[0]
+    ell_out[:, 1] = x*np.sin(angle) + y*np.cos(angle) + center[1]
 
-    return ell
+    #Transform the ellipse
+    ell_in[:, 0] = 0.5*x*np.cos(angle) - 0.5*y*np.sin(angle) + center[0]
+    ell_in[:, 1] = 0.5*x*np.sin(angle) + 0.5*y*np.cos(angle) + center[1]
+
+    return ell_out, ell_in
 
 """Polygon Clipper functions"""
 #From: https://github.com/mdabdk/sutherland-hodgman
@@ -124,7 +129,7 @@ def clip(subject_polygon,clipping_polygon):
 def check_ell_intersection(x1, y1, a1, b1, t1,
                          x2, y2, a2, b2, t2):
 
-    ell = create_ellipse((x1, y1), (a1, b1), t1)
+    ell, _ = create_ellipse((x1, y1), (a1, b1), t1)
     X, Y = ell[:, 0], ell[:, 1]
 
     xt = (X - x2)*cos(t2) + (Y - y2)*sin(t2)
@@ -133,24 +138,6 @@ def check_ell_intersection(x1, y1, a1, b1, t1,
     inside = np.any(check <= 1)
 
     return inside
-
-@nb.jit(nopython = True, nogil = True)
-def ellipse_intersection(x1, y1, a1, b1, t1,
-                         x2, y2, a2, b2, t2):
-
-    #check if two ellipses intersect first
-    bool_intersect = check_ell_intersection(x1, y1, a1, b1, t1,
-                                            x2, y2, a2, b2, t2)                                          
-
-    if bool_intersect == False:
-        #Zero area -> No intersection
-        return np.empty((0, 2))
-    else:
-        ell1 = create_ellipse((x1, y1), (a1, b1), (t1))
-        ell2 = create_ellipse((x2, y2), (a2, b2), (t2))
-        intersection = clip(ell1, ell2)
-
-    return intersection
 """"""
 
 """Polygon Area function"""
@@ -166,4 +153,15 @@ def polygon_area(x_y):
     area = .5*np.absolute(S1 - S2)
 
     return area
+
+@nb.jit(nopython = True, nogil = True)
+def ell_ell_area(ell1, ell2):
+    
+    intersection = clip(ell1, ell2)
+    if intersection.shape[0] != 0:
+        area = polygon_area(intersection)
+    else:
+        area = 0.0    
+
+    return area    
 """"""

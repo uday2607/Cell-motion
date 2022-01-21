@@ -12,22 +12,22 @@ if __name__ == '__main__':
     a = 6
     b = 3
     L = 40
-    Num = 5
+    Num = 10
     Nadh = 64
     k_plus = 0.5
     dt = 1
     lamda = 0.5
-    tau = 30
-    T_S = 100
-    k_s = 0.5
+    tau = 20
+    T_S = 50000
+    k_s = 0.001
     k_m = 1
-    k_out_out = 2
+    k_out_out = 20.0
     k_in_out = k_out_out*100
     k_in_in = k_in_out*100
-    fThreshold = 0.5
-    k_b = 0.005
-    k_f = 0.0005
-    alpha = 25
+    fThreshold = 0.1
+    k_b = 0.001
+    k_f = 0.0001
+    alpha = 10
     a_min = a
     for i in range(tau):
         a_min -= a_min*lamda*dt/tau    
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     Adh0, Adh, cAdh0, cp0 = Adh_funcs.random_adhesions(a, b, cells, cparams, Nadh,
                                            k_plus, dt)
 
-    for t in range(6*(tau+tau//5+1)+1):
+    for t in range(300):
         print("Time = ", t)
 
         #plot in the beginning
@@ -73,6 +73,10 @@ if __name__ == '__main__':
                                         cAdh0[num], cp0[num],
                                         Adh[num], Adh0[num],
                                         k_b, k_f, alpha, a, dt, rng)
+
+                Adh0[num], Adh[num], cAdh0[num], cp0[num] = Adh_funcs.one_cell_random_adh(a, b, cells,
+                                        num, cparams, Adh, Adh0, cAdh0, cp0, Nadh,
+                                        k_plus/20, dt, 0)                        
 
 
             elif cparams[4*num+3] < 0:
@@ -123,16 +127,18 @@ if __name__ == '__main__':
             bounds.append((0, 2*np.pi))        
         bounds = tuple(bounds)
 
-        #soln = minimize(energy.total_energy, cells, args=args,
-        #                method='BFGS')
-        soln = minimize_parallel(fun=energy.total_energy, x0=cells, args=args)
+        print(energy.total_energy(cells, cparams, Ovlaps, Adh, Adh0,
+                k_s, k_out_out, k_in_out, k_in_in))
+        soln = minimize_parallel(fun=energy.total_energy, x0=cells, args=args,
+        parallel={"max_workers" : 4}, jac=energy.total_energy_gradient,
+        options={"maxfun" : 10**5, "maxiter" : 10**5})
+        print(soln["success"])
         cells = soln.x        
+        print(energy.total_energy(cells, cparams, Ovlaps, Adh, Adh0,
+                k_s, k_out_out, k_in_out, k_in_in))
 
         #rotate and shift the adhesions
         cells, cparams, Adh = Adh_funcs.rotation_and_shift(cells, cells_,
                                 cparams, Adh)
-
-        # Update bonds
-        #for num in range(Num):
 
         

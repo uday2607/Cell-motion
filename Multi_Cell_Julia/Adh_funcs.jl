@@ -1,6 +1,8 @@
 include("Cell_funcs.jl")
 include("Energy_funcs.jl")
 using NLsolve
+using PyCall
+so = pyimport("scipy.optimize")
 
 # Spawn random adhesions 
 function random_adhesions(cells, cparams, Nadh, k_plus, dt)
@@ -202,7 +204,7 @@ end
 
 # Function to find the center of the cell which makes the 
 # ellipse pass through the rear-most adhesion site
-function solve_center!(F, vals, a, b, phi, h, k, xc, yc)
+function solve_center!(vals, a, b, phi, h, k, xc, yc)
 
     # variables
     x = vals[1]
@@ -212,9 +214,8 @@ function solve_center!(F, vals, a, b, phi, h, k, xc, yc)
     phi -= 2.0*pi*floor((phi + pi)*(1.0/(2.0*pi)))
 
     # Evaluate the function 
-    F[1] = (((h+xc-x)*cos(phi)+(k+yc-y)*sin(phi))^2.0/a^2.0 + 
-            ((h+xc-x)*sin(phi)-(k+yc-y)*cos(phi))^2.0/b^2.0 - 1)
-    F[2] = atan(y-yc, x-xc) - phi
+    return ((((h+xc-x)*cos(phi)+(k+yc-y)*sin(phi))^2.0/a^2.0 + 
+            ((h+xc-x)*sin(phi)-(k+yc-y)*cos(phi))^2.0/b^2.0 - 1), atan(y-yc, x-xc) - phi)
 end    
 
 # Function to find the shortest distance from a line 
@@ -244,6 +245,7 @@ function protrusion!(cells, num, Adh, Adh0, cparams, Ovlap_indices, T_S,
     # Tension is +ve and less than critical tension 
     # So there is a stalling tension which lowers contraction
     # speed
+    p_flag = 0
     if (T < T_S && T > 0.0)
 
         c = lamda*dt*(1 - T/T_S)/(tau÷5)
@@ -251,6 +253,7 @@ function protrusion!(cells, num, Adh, Adh0, cparams, Ovlap_indices, T_S,
         # Update 'a' and phase 
         cparams[4*(num-1)+1] += c*cparams[4*(num-1)+1]
         cparams[4*(num-1)+4] -= 1
+        p_flag = 1
 
         # Find the perpenicular line to semi-major axis 
         a1 = -1/tan(cparams[4*(num-1)+3] + 10^-8)
@@ -276,11 +279,11 @@ function protrusion!(cells, num, Adh, Adh0, cparams, Ovlap_indices, T_S,
             theta = cparams[4*(num-1)+3]
 
             # Solving center
-            xsol = nlsolve((F,x) -> solve_center!(F, x, cparams[4*(num-1)+1],
+            xsol = so.fsolve(x -> solve_center!(x, cparams[4*(num-1)+1],
             cparams[4*(num-1)+2], theta, Adh[num, ad, 1], 
             Adh[num, ad, 2], cells[3*(num-1)+1], cells[3*(num-1)+2]), 
             cells[3*(num-1)+1:3*(num-1)+2] .+ Float64[cos(theta), sin(theta)])
-            x_c, y_c = xsol.zero
+            x_c, y_c = xsol
 
             dis = sqrt((cells[3*(num-1)+1] - x_c)^2.0 +
                         (cells[3*(num-1)+2] - y_c)^2.0)            
@@ -313,6 +316,7 @@ function protrusion!(cells, num, Adh, Adh0, cparams, Ovlap_indices, T_S,
         # Update 'a' and phase 
         cparams[4*(num-1)+1] += c*cparams[4*(num-1)+1]
         cparams[4*(num-1)+4] -= 1
+        p_flag = 1
 
         # Find the perpenicular line to semi-major axis 
         a1 = -1/tan(cparams[4*(num-1)+3] + 10^-8)
@@ -338,11 +342,11 @@ function protrusion!(cells, num, Adh, Adh0, cparams, Ovlap_indices, T_S,
             theta = cparams[4*(num-1)+3]
 
             # Solving center 
-            xsol = nlsolve((F,x) -> solve_center!(F, x, cparams[4*(num-1)+1],
+            xsol = so.fsolve(x -> solve_center!(x, cparams[4*(num-1)+1],
             cparams[4*(num-1)+2], theta, Adh[num, ad, 1], 
             Adh[num, ad, 2], cells[3*(num-1)+1], cells[3*(num-1)+2]), 
             cells[3*(num-1)+1:3*(num-1)+2] .+ Float64[cos(theta), sin(theta)])
-            x_c, y_c = xsol.zero
+            x_c, y_c = xsol
 
             dis = sqrt((cells[3*(num-1)+1] - x_c)^2.0 +
                         (cells[3*(num-1)+2] - y_c)^2.0)
@@ -381,6 +385,8 @@ function protrusion!(cells, num, Adh, Adh0, cparams, Ovlap_indices, T_S,
     if cparams[4*(num-1)+4] < 0 && cparams[4*(num-1)+1] > a
         cparams[4*(num-1)+4] = 0 # non -ve times -> Contraction
     end
+
+    return p_flag
 end                    
 
 # After the adhesions formations, check if any adheisons will 

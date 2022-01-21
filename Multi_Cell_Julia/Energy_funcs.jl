@@ -1,6 +1,5 @@
-include("EE_Ovlap_Area.jl")
+include("ell_ovlap_area.jl")
 include("Cell_funcs.jl")
-using SparseArrays
 
 # Calculate the adhesion energy of each cell 
 function one_adh_energy(cells, num, Adh, Adh0, k_s)
@@ -14,27 +13,29 @@ function one_adh_energy(cells, num, Adh, Adh0, k_s)
 
     # Change in angle of the polarity of the cell 
     dtheta = cells[3*num]
+    cos_t = cos(dtheta)
+    sin_t = sin(dtheta)
 
     # iterate through all the adhesion sites info
     for i in LinearIndices(Adh[num, :, 1])
         if Adh[num, i, 1] != -10^8 && Adh[num, i, 2] != -10^8
             x = Adh[num, i, 1]
             y = Adh[num, i, 2]
-            f_x = -(cos(dtheta)*x-sin(dtheta)*y + cells[3*(num-1)+1]
+            f_x = -(cos_t*x-sin_t*y + cells[3*(num-1)+1]
                     -Adh0[num, i, 1])
-            f_y = -(sin(dtheta)*x+cos(dtheta)*y + cells[3*(num-1)+2]
+            f_y = -(sin_t*x+cos_t*y + cells[3*(num-1)+2]
                     -Adh0[num, i, 2])   
             
             # Adh energy of the bond 
-            adh_energy += 0.5*k_s*(f_x*f_x + f_y*f_y)     
+            adh_energy += f_x*f_x + f_y*f_y    
         end    
     end    
 
-    return adh_energy
+    return 0.5*k_s*adh_energy
 end
 
 # Calculate the ovarlap energy of two cells 
-function pairwise_ovlap_energy(cells, cparams, ind_i, ind_j, 
+function pairwise_ovlap_energy_i(cells, cparams, ind_i, ind_j, 
                               k_oo, k_io, k_ii)
 
     # temporary variables                            
@@ -96,7 +97,47 @@ function pairwise_ovlap_energy(cells, cparams, ind_i, ind_j,
     end                
 
     return oval_energy
-end                              
+end
+
+# Calculate the ovarlap energy of two cells 
+function pairwise_ovlap_energy_e(ell_i_in, ell_i_out, ell_j_in, ell_j_out, 
+            ovlap_const, k_oo, k_io, k_ii)
+
+    # temporary variables                            
+    oval_energy = 0.0
+    area_oo = 0.0
+    area_io = 0.0 
+    area_ii = 0.0       
+
+    # find the overlap areas of cells
+    # (partial function)        
+    area_oo = ellipse_ellipse_overlap_e(ell_i_out, ell_j_out)
+
+    # outer ellipses overlap                 
+    if area_oo > 0.0
+        oval_energy -= k_oo*ovlap_const*area_oo
+
+        # in-out ellipses overlap 
+        area_io = ellipse_ellipse_overlap_e(ell_i_in, ell_j_out)
+        if area_io > 0.0
+            oval_energy += k_io*ovlap_const*area_io
+        end
+
+        # out-in ellipses overlap 
+        area_oi = ellipse_ellipse_overlap_e(ell_i_out, ell_j_in)
+        if area_oi > 0.0
+            oval_energy += k_io*ovlap_const*area_oi
+
+            area_ii = ellipse_ellipse_overlap_e(ell_i_in, ell_j_in) 
+            if area_ii > 0.0
+                # inner ellipses overlap 
+                oval_energy += k_ii*ovlap_const*area_ii 
+            end    
+        end
+    end                
+
+    return oval_energy
+end
 
 # calculate the total overlap energy of the cell 
 function one_oval_energy(cells, cparams, ind_i,
@@ -106,7 +147,7 @@ function one_oval_energy(cells, cparams, ind_i,
     oval_energy = 0.0 
     
     # check if the cell overlaps with any other cells 
-    pairwise_oval_energy(i, j) = pairwise_ovlap_energy(cells, cparams, 
+    pairwise_oval_energy(i, j) = pairwise_ovlap_energy_i(cells, cparams, 
                                 i, j, k_oo, k_io, k_ii)
     for ind_j in LinearIndices(Ovlap_indices[ind_i, :])
         
@@ -192,7 +233,7 @@ function compute_tension(cells, num, cparams, Ovlap_indices, Adh,
     adh = copy(Adh)
 
     # temporary variables 
-    step = 10^-5
+    step = 10^-4
     c_ind = 4*(num-1)
     oval_energy(cparams) = one_oval_energy(cells, cparams, num, 
                             Ovlap_indices, k_oo, k_io, k_ii)
@@ -223,35 +264,71 @@ function total_energy(cells, cparams, Ovlap_indices, Adh, Adh0,
     total_energy = 0.0
     E = 0.0
     adh_energy(num) = one_adh_energy(cells, num, Adh, Adh0, k_s)
-    oval_energy(ind_i, ind_j) = pairwise_ovlap_energy(cells, cparams, ind_i, ind_j, 
-                                k_oo, k_io, k_ii)
+    oval_energy(ell_i_in, ell_i_out, ell_j_in, ell_j_out, 
+    ovlap_const) = pairwise_ovlap_energy_e(ell_i_in, ell_i_out, ell_j_in, ell_j_out, 
+                                ovlap_const, k_oo, k_io, k_ii)
 
     # Find the overlap indices 
-    Ovlap_indices = find_overlap!(cells, cparams, Ovlap_indices)
+    find_overlap!(cells, cparams, Ovlap_indices)
     z_size = size(Ovlap_indices)
     E_ovlaps = zeros(Real, z_size)
 
     # Iterate thorugh all the cells 
-    for ind_i in 1:(size(cells)[1]÷3)
+    Threads.@threads for ind_i in 1:(size(cells)[1]÷3)
+    #for ind_i in 1:(size(cells)[1]÷3)  
+    
+        # cell coordinates    
+        x1 = cells[3*(ind_i-1)+1]
+        y1 = cells[3*(ind_i-1)+2]
+        a1 = cparams[4*(ind_i-1)+1]
+        b1 = cparams[4*(ind_i-1)+2]
+        t1 = cparams[4*(ind_i-1)+3]
+
+        # angles of cell polarities (all angles in range [-pi, pi])
+        phi_i = t1 + cells[3*(ind_i-1)+3]
+        phi_i -= 2.0*pi*floor((phi_i + pi)*(1.0/(2.0*pi))) 
+
+        # ellipses 
+        ell_i_out = ellipse(x1, y1, a1, b1, t1, 45)
+        ell_i_in = ellipse(x1, y1, a1/2, b1/2, t1, 45)
     
         # adhesion energy 
         total_energy += adh_energy(ind_i)
 
         # overlap energy 
         for ind_j in LinearIndices(Ovlap_indices[ind_i, :])
+
+            x2 = cells[3*(ind_j-1)+1]
+            y2 = cells[3*(ind_j-1)+2]
+            a2 = cparams[4*(ind_j-1)+1]
+            b2 = cparams[4*(ind_j-1)+2]
+            t2 = cparams[4*(ind_j-1)+3]
+
+            # angles of cell polarities (all angles in range [-pi, pi])
+            phi_j = t2 + cells[3*(ind_j-1)+3]
+            phi_j -= 2.0*pi*floor((phi_j + pi)*(1.0/(2.0*pi)))
+            phi_c = atan(y2 - y1, x2 - x1)
+            ovlap_const = 0.5*((1.0+0.5*cos(2.0*(phi_c - phi_i)))*
+                            (1.0+0.5*cos(2.0*(phi_c - phi_j))))
+
+            # ellipses 
+            ell_j_out = ellipse(x2, y2, a2, b2, t2, 45)
+            ell_j_in = ellipse(x2, y2, a2/2, b2/2, t2, 45)
+
             if Ovlap_indices[ind_i, ind_j] == 1
                 
                 # If Pairwise energy isn't calculated 
                 # yet, do it 
                 if E_ovlaps[ind_i, ind_j] == 0.0
-                    E = oval_energy(ind_i, ind_j)
+                    E = oval_energy(ell_i_in, ell_i_out, ell_j_in, ell_j_out, 
+                    ovlap_const)
                     E_ovlaps[ind_i, ind_j] = E
                     E_ovlaps[ind_j, ind_i] = E
                 end
             end    
-        end
-        total_energy += sum(E_ovlaps[ind_i, :])    
+        end    
     end    
-    
+
+    total_energy += sum(E_ovlaps)
     return total_energy                    
 end

@@ -1,6 +1,8 @@
 # Source: https://link.springer.com/article/10.1007/s00791-013-0214-3
 # From: https://github.com/chraibi/EEOver/blob/master/solvers.c
 include("Poly_solvers.jl")
+using PolynomialRoots
+using DecFP
 
 function ell2tr(x, y, aa, bb, cc,
         dd, ee, ff)
@@ -13,12 +15,14 @@ function nointpts(a1, b1, a2, b2, h1,
     k2_tr, aa, bb, cc, dd, ee,
     ff)
 
+    Pi = Dec64(pi)
+
     # some tmp-variables to avoid doing things several times    
     a1b1 = a1*b1 
     a2b2 = a2*b2 
-    area_1 = pi*a1b1
-    area_2 = pi*a2b2 
-    EPS = 10.0^-5
+    area_1 = Pi*a1b1
+    area_2 = Pi*a2b2 
+    EPS = Dec64(10.0^-8)
 
     # The relative size of the two ellipses can be found from the axis
     # lengths 
@@ -67,7 +71,8 @@ function twointpts(x, y, a1, b1, t1,
     bb, cc, dd, ee, ff)
 
     #temporary constant 
-    EPS = 10.0^-5
+    EPS = Dec64(10.0^-8)
+    Pi = Dec64(pi)
     
     # if execution arrives here, the intersection points are not
     # tangents.
@@ -84,7 +89,7 @@ function twointpts(x, y, a1, b1, t1,
     
     if (y[1] < 0.0) 
         # Quad III or IV
-        theta1 = 2.0*pi - acos(x[1]/a1)
+        theta1 = 2.0*Pi - acos(x[1]/a1)
     else
         # Quad I or II
         theta1 = acos(x[1]/a1)
@@ -100,7 +105,7 @@ function twointpts(x, y, a1, b1, t1,
     
     if (y[2] < 0.0) 
         # Quad III or IV
-        theta2 = 2.0*pi - acos(x[2]/a1)
+        theta2 = 2.0*Pi - acos(x[2]/a1)
     else
         # Quad I or II
         theta2 = acos(x[2]/a1)
@@ -133,9 +138,9 @@ function twointpts(x, y, a1, b1, t1,
 
     # here is the ellipse segment routine for the first ellipse
     if (theta1 > theta2)
-        theta1 -= 2.0*pi 
+        theta1 -= 2.0*Pi 
     end 
-    if ((theta2 - theta1) > pi)
+    if ((theta2 - theta1) > Pi)
         trsign = 1.0
     else 
         trsign = -1.0
@@ -176,7 +181,7 @@ function twointpts(x, y, a1, b1, t1,
     
     if (y1_tr < 0.0) 
         # Quad III or IV
-        theta1 = 2.0*pi - acos(x1_tr/a2)
+        theta1 = 2.0*Pi - acos(x1_tr/a2)
     else
         # Quad I or II
         theta1 = acos(x1_tr/a2)
@@ -192,7 +197,7 @@ function twointpts(x, y, a1, b1, t1,
     
     if (y2_tr < 0.0) 
         # Quad III or IV
-        theta2 = 2.0*pi - acos(x2_tr/a2)
+        theta2 = 2.0*Pi - acos(x2_tr/a2)
     else
         # Quad I or II
         theta2 = acos(x2_tr/a2)
@@ -233,9 +238,9 @@ function twointpts(x, y, a1, b1, t1,
 
     # here is the ellipse segment routine for the second ellipse
     if (theta1 > theta2)
-        theta1 -= 2.0*pi 
+        theta1 -= 2.0*Pi 
     end 
-    if ((theta2 - theta1) > pi)
+    if ((theta2 - theta1) > Pi)
         trsign = 1.0
     else 
         trsign = -1.0
@@ -247,13 +252,16 @@ function twointpts(x, y, a1, b1, t1,
         area2 += a2*b2 
     end
     
-    return area1 +  area2
+    return area1 + area2
 
 end    
 
 # check whether an intersection point is a tangent or a cross-point
 function istanpt(x, y, a1, b1, aa, 
         bb, cc, dd, ee, ff)
+
+    # Temporary constants 
+    Pi = Dec64(pi)    
 
     # Avoid inverse trig calculation errors: there could be an error 
     # if |x1/A| > 1.0 when calling acos().  If execution arrives here, 
@@ -270,12 +278,12 @@ function istanpt(x, y, a1, b1, aa,
     # The parametric angles depend on the quadrant where each point
     # is located.
     if (y < 0.0)
-        theta = 2.0*pi - acos(x/a1)
+        theta = 2.0*Pi - acos(x/a1)
     else 
         theta = acos(x/a1)
     end 
     
-    eps_radian = 0.1 #arbitrary value 
+    eps_radian = Dec64(0.1) #arbitrary value 
 
     # determine two points that are on each side of (x, y) and lie on
     # the first ellipse
@@ -345,10 +353,11 @@ function fourintpts(xint, yint, a1, b1, t1,
     bb, cc, dd, ee, ff)
 
     # some tmp-variables to avoid calculating the same thing several times
+    Pi = Dec64(pi)
     a1b1 = a1*b1 
     a2b2 = a2*b2
-    area_1 = pi*a1b1
-    area_2 = pi*a2b2 
+    area_1 = Pi*a1b1
+    area_2 = Pi*a2b2 
 
     # only one case, which involves two segments from each ellipse, plus
     # two triangles.
@@ -366,7 +375,7 @@ function fourintpts(xint, yint, a1, b1, t1,
         end
         
         if (yint[i] < 0.0)
-            push!(theta, 2.0*pi - acos(xint[i]/a1))
+            push!(theta, 2.0*Pi - acos(xint[i]/a1))
         else
             push!(theta, acos(xint[i]/a1))  
         end       
@@ -409,9 +418,9 @@ function fourintpts(xint, yint, a1, b1, t1,
     cosphi = cos(t1 - t2)
     sinphi = sin(t1 - t2)
 
-    xint_tr = Real[0.0, 0.0, 0.0, 0.0]
-    yint_tr = Real[0.0, 0.0, 0.0, 0.0]
-    theta_tr = Real[0.0, 0.0, 0.0, 0.0]
+    xint_tr = Complex{Dec64}[0.0, 0.0, 0.0, 0.0]
+    yint_tr = Complex{Dec64}[0.0, 0.0, 0.0, 0.0]
+    theta_tr = Complex{Dec64}[0.0, 0.0, 0.0, 0.0]
     for i in 1:4
 
         xint_tr[i] = (xint[i] - h2_tr)*cosphi + (yint[i] - k2_tr)*(-1.0*sinphi)
@@ -426,7 +435,7 @@ function fourintpts(xint, yint, a1, b1, t1,
         end
         
         if (yint_tr[i] < 0.0)
-            theta_tr[i] = 2.0*pi - acos(xint_tr[i]/a2)
+            theta_tr[i] = 2.0*Pi - acos(xint_tr[i]/a2)
         else 
             theta_tr[i] = acos(xint_tr[i]/a2)
         end 
@@ -450,7 +459,7 @@ function fourintpts(xint, yint, a1, b1, t1,
         area4 = 0.5*(a2b2*(theta_tr[3] - theta_tr[2]) - abs(xint_tr[2]*yint_tr[3] - xint_tr[3]*yint_tr[2]))
 
         if (theta_tr[4] > theta_tr[1])
-            area5 = 0.5*(a2b2*(theta_tr[1] - (theta_tr[4] - 2.0*pi))
+            area5 = 0.5*(a2b2*(theta_tr[1] - (theta_tr[4] - 2.0*Pi))
                     - abs(xint_tr[4]*yint_tr[1] - xint_tr[1]*yint_tr[4]))
         else 
             area5 = 0.5*(a2b2*(theta_tr[1] - theta_tr[4])
@@ -459,7 +468,7 @@ function fourintpts(xint, yint, a1, b1, t1,
     
     else
         area2 = 0.5*(a1b1*(theta[3]-theta[2]) - abs(xint[2]*yint[3] - xint[3]*yint[2]))
-        area3 = 0.5*(a1b1*(theta[1]-(theta[4]-2.0*pi)) - abs(xint[4]*yint[1] - xint[1]*yint[4]))
+        area3 = 0.5*(a1b1*(theta[1]-(theta[4]-2.0*Pi)) - abs(xint[4]*yint[1] - xint[1]*yint[4]))
         area4 = 0.5*(a2b2*(theta_tr[2] - theta_tr[1]) - abs(xint_tr[1]*yint_tr[2] - xint_tr[2]*yint_tr[1]))
         area5 = 0.5*(a2b2*(theta_tr[4] - theta_tr[3])
                     - abs(xint_tr[3]*yint_tr[4] - xint_tr[4]*yint_tr[3]))
@@ -487,21 +496,29 @@ function fourintpts(xint, yint, a1, b1, t1,
 
 end    
 
-function ellipse_ellipse_overlap(a1, b1, h1,
-                    k1, t1, a2, b2,
-                    h2, k2, t2)
+function fast_ellipse_ellipse_overlap(a_1, b_1, h_1,
+                    k_1, t_1, a_2, b_2, h_2, k_2, t_2)
+
+    # Use Decimals!!!
+    a1 = Dec64(a_1)
+    b1 = Dec64(b_1)
+    h1 = Dec64(h_1)
+    k1 = Dec64(k_1)
+    t1 = Dec64(t_1)
+    a2 = Dec64(a_2)
+    b2 = Dec64(b_2)
+    h2 = Dec64(h_2)
+    k2 = Dec64(k_2)
+    t2 = Dec64(t_2)                
     
     # Useful Constants
-    twopi = 2.0*pi
-    EPS = 10.0^-5
+    Pi = Dec64(pi)
+    twoPi = 2.0*Pi
+    EPS = Dec64(10.0^-8)
 
     # Angles should be in the range (-pi, pi)
-    if abs(t1) > pi
-        t1 = mod(t1, pi)
-    end 
-    if abs(t2) > pi 
-        t2 = mod(t2, pi)
-    end 
+    t1 -= 2.0*Pi*floor((t1 + Pi)*(1.0/(2.0*Pi)))
+    t2 -= 2.0*Pi*floor((t2 + Pi)*(1.0/(2.0*Pi))) 
     
     # ==================================================================
     # = DETERMINE THE TWO ELLIPSE EQUATIONS FROM INPUT PARAMETERS =
@@ -531,8 +548,8 @@ function ellipse_ellipse_overlap(a1, b1, h1,
     h2_tr = (h2 - h1)*cosphi + (k2-k1)*sinphi 
     k2_tr = (h1 - h2)*sinphi + (k2-k1)*cosphi
     phi = t2 - t1 
-    if abs(phi) > twopi
-        phi = mod(phi, twopi)
+    if abs(phi) > twoPi
+        phi = mod(phi, twoPi)
     end
 
     # Calculate implicit (Polynomial) coefficients for the second ellipse
@@ -584,19 +601,23 @@ function ellipse_ellipse_overlap(a1, b1, h1,
     # Depending on the coeffs, find the roots (only real)
     if c_5 != 0.0
         poly_roots = ferrari(c_5, c_4, c_3, c_2, c_1)
+        #poly_roots = roots([c_1, c_2, c_3, c_4, c_5])
     elseif c_4 != 0.0
         poly_roots = cardan(c_4, c_3, c_2, c_2)
+        #poly_roots = roots([c_1, c_2, c_3, c_4])
     elseif c_3 != 0.0
         poly_roots = roots2(c_3, c_2, c_1)
+        #poly_roots = roots([c_1, c_2, c_3])
     elseif c_2 != 0.0
-        poly_roots = ComplexF64[-1.0*c_1/c_2]  
+        poly_roots = Complex{Dec64}[-1.0*c_1/c_2]  
     else
-        poly_roots = ComplexF64[]              
-    end    
+        poly_roots = Complex{Dec64}[]              
+    end
 
     # Get the real roots 
     ychk = []
     for rt in poly_roots
+        rt = round(rt, digits=12)
         if isreal(rt)
             push!(ychk, Real(rt*b1))
         end
@@ -607,20 +628,20 @@ function ellipse_ellipse_overlap(a1, b1, h1,
     nychk = size(ychk)[1]
 
     # determine whether the polynomial roots are points of 
-    # intersection for the two ellipses 
+    # intersection for the two ellipses
     nintpts = 0
-    xint = []
-    yint = []
+    xint = Dec64[]
+    yint = Dec64[]
     for i in 1:nychk
 
-        # check for multiple roots 
+        # check for multiple roots
         if (i < nychk && abs(ychk[i] - ychk[i+1]) < EPS)
             continue 
         end 
         
         # check intersection points for ychk[i]
         if (abs(ychk[i]) > b1)
-            x1 = 0.0
+            x1 = Dec64(0.0)
         else 
             x1 = a1*sqrt(1.0 - (ychk[i]*ychk[i])/(b1*b1)) 
         end 
@@ -653,10 +674,10 @@ function ellipse_ellipse_overlap(a1, b1, h1,
     # ========================================xs==========================
     if nintpts == 1 || nintpts == 0
         Area = nointpts(a1, b1, a2, b2, h1, k1, h2, k2, t1, t2, 
-                h2_tr, k2_tr, aa, bb, cc, dd, ee, ff)       
+                h2_tr, k2_tr, aa, bb, cc, dd, ee, ff)          
         
         return Area
-    elseif nintpts == 2    
+    elseif nintpts == 2
 
         # when there are two intersection points, it is possible for
         # them to both be tangents, in which case one of the ellipses
@@ -689,7 +710,6 @@ function ellipse_ellipse_overlap(a1, b1, h1,
                 k2_tr, t2, aa, bb, cc, dd, ee, ff)    
         return Area        
     else
-        println(nintpts)
         return -1.0    
     end
 end

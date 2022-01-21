@@ -27,7 +27,7 @@ def plot_ellipses(cells, cparams, Adh, Adh0, t):
     Y = []
     U = []
     V = []
-    C = [1]*(cells.shape[0]//3)
+    C = [1]*(cells.shape[0]//3)                     
 
     for i in range(cells.shape[0]//3):
         temp_ell = create_ellipse(cells[3*i:3*i+2],

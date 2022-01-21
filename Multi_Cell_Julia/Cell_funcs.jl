@@ -1,6 +1,6 @@
 using Random
 using Distributions 
-include("EE_Ovlap_Area.jl")
+include("ell_ovlap_area.jl")
 
 # Function to check if new cell collides with any other cell present
 function noCollision(cells, cparams, cell_index, a, b, x, 
