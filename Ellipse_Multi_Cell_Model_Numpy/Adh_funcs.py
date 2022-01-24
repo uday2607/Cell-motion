@@ -19,7 +19,7 @@ def random_adhesions(a, b, cells, cparams,
 
         #Random numbers 
         phi = uniform_double(0, 2*pi, Nadh)
-        rho = uniform_double(0, 1, Nadh)
+        rho = uniform_double(0.5, 1, Nadh)
 
         #In the system frame of reference
         x = cparams[4*ind]*np.sqrt(rho)*np.cos(phi)
@@ -66,12 +66,15 @@ def one_cell_random_adh(a, b, cells, ind, cparams, Adh, Adh0, cAdh0, cp0,
         Adh[ind, :, 0] == -1e8, Adh[ind, :, 1] == -1e8)]
 
     #Random numbers 
-    if flag:
-        phi = gaussian(0, pi/4, Nadh)
-        rho = uniform_double(0.5, 1, Nadh)
+    if flag == 2:
+        phi = uniform_double(0, 2*pi, Nadh)
+        rho = uniform_double(0.5, 1, Nadh) 
+    elif flag == 1:
+        phi = uniform_double(0, 2*pi, Nadh)
+        rho = uniform_double(0.5, 1, Nadh)   
     else:
         phi = uniform_double(0, 2*pi, Nadh)
-        rho = uniform_double(0, 1, Nadh)
+        rho = uniform_double(0.5, 1, Nadh)
 
     #In the system frame of reference
     x = cparams[4*ind]*np.sqrt(rho)*np.cos(phi)
@@ -255,7 +258,7 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
 
     #Tension is less than critical tension
     if (T < T_S and T > 0):
-        c = lamda*dt*(1-T/T_S)/(tau//5)
+        c = lamda*(1-lamda)*dt*(1-T/T_S)/(tau//5)
         p_flag = 1
 
         # Update a and phase

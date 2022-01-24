@@ -9,40 +9,61 @@ import math
 
 if __name__ == '__main__':
 
-    a = 6
-    b = 3
+    a = 4
+    b = 2
     L = 40
-    Num = 10
+    Num = 1
     Nadh = 64
     k_plus = 0.5
     dt = 1
-    lamda = 0.5
-    tau = 20
-    T_S = 50000
-    k_s = 0.001
+    lamda = 0.4
+    tau = 25
+    T_S = 4000
+    k_s = 0.5
     k_m = 1
     k_out_out = 20.0
-    k_in_out = k_out_out*100
-    k_in_in = k_in_out*100
-    fThreshold = 0.1
-    k_b = 0.001
-    k_f = 0.0001
-    alpha = 10
+    k_in_out = k_out_out*10000
+    k_in_in = k_in_out*10000
+    fThreshold = 0.5
+    k_b = 0.0025
+    k_f = 0.00025
+    alpha = 45
     a_min = a
     for i in range(tau):
         a_min -= a_min*lamda*dt/tau    
     rng = np.random.default_rng()
+    TIME = 350
+
+    # To save the data of the simulations
 
     # Spawn Cells and Adhesions
     #cells, cparams, Ovlaps = Cell_funcs.random_cells(L, a, b, Num)
-    #cells, cparams, Ovlaps = Cell_funcs.preset(a, b, Num)
     cells, cparams, Ovlaps = Cell_funcs.linear_preset(a, b, Num)
+    #cells, cparams, Ovlaps = Cell_funcs.two_linear_preset(a, b, Num)
     cparams0 = cparams.copy()
     Adh0, Adh, cAdh0, cp0 = Adh_funcs.random_adhesions(a, b, cells, cparams, Nadh,
                                            k_plus, dt)
 
-    for t in range(300):
+    #CELLS = np.zeros((TIME, cells.shape[0]))
+    #CPARAMS = np.zeros((TIME, cparams.shape[0]))
+    #ADH = np.zeros((TIME, Adh.shape[0], Adh.shape[1], Adh.shape[2]))
+    #ADH0 = np.zeros(ADH.shape)
+    #CADH0 = np.zeros(ADH.shape)
+    #CP0 = np.zeros(ADH.shape)    
+
+    with open("distance_data.txt", "w") as f:
+        f.write("{}\t{}\t{}\t{}\n".format(cells[0], cells[1], 0.0, "n"))                                   
+
+    for t in range(TIME):
         print("Time = ", t)
+
+        ## Store data
+        #CELLS[t] = cells.copy() 
+        #CPARAMS[t] = cparams.copy() 
+        #ADH[t] = Adh.copy()
+        #ADH0[t] = Adh0.copy()
+        #CADH0[t] = cAdh0.copy()
+        #CP0[t] = cp0.copy()
 
         #plot in the beginning
         plot_cells.plot_ellipses(cells, cparams, Adh, Adh0, a, b, t)
@@ -76,8 +97,10 @@ if __name__ == '__main__':
 
                 Adh0[num], Adh[num], cAdh0[num], cp0[num] = Adh_funcs.one_cell_random_adh(a, b, cells,
                                         num, cparams, Adh, Adh0, cAdh0, cp0, Nadh,
-                                        k_plus/20, dt, 0)                        
+                                        k_plus/20, dt, 1)                        
 
+                with open("distance_data.txt", "a+") as f:
+                    f.write("{}\t{}\t{}\t{}\n".format(cells[0], cells[1], t, "c"))
 
             elif cparams[4*num+3] < 0:
                 #Protrusion
@@ -97,7 +120,10 @@ if __name__ == '__main__':
                 #New adhesions at a smaller rate
                 Adh0[num], Adh[num], cAdh0[num], cp0[num] = Adh_funcs.one_cell_random_adh(a, b, cells,
                                         num, cparams, Adh, Adh0, cAdh0, cp0, Nadh,
-                                        k_plus/10, dt, 1)                        
+                                        k_plus/4, dt, 2)  
+
+                with open("distance_data.txt", "a+") as f:
+                    f.write("{}\t{}\t{}\t{}\n".format(cells[0], cells[1], t, "p"))                                              
 
             else:
                 #New bonds
@@ -105,7 +131,10 @@ if __name__ == '__main__':
                 Adh0[num], Adh[num], cAdh0[num], cp0[num] = Adh_funcs.one_cell_random_adh(a, b, cells,
                                         num, cparams, Adh, Adh0, cAdh0, cp0, Nadh,
                                         k_plus, dt, 0)
-                cparams[4*num+3] = 1                            
+                cparams[4*num+3] = 1  
+
+                with open("distance_data.txt", "a+") as f:
+                    f.write("{}\t{}\t{}\t{}\n".format(cells[0], cells[1], t, "n"))
 
         #minimize energy
         args = (cparams, Ovlaps, Adh, Adh0,
@@ -129,8 +158,7 @@ if __name__ == '__main__':
 
         print(energy.total_energy(cells, cparams, Ovlaps, Adh, Adh0,
                 k_s, k_out_out, k_in_out, k_in_in))
-        soln = minimize_parallel(fun=energy.total_energy, x0=cells, args=args,
-        parallel={"max_workers" : 4}, jac=energy.total_energy_gradient,
+        soln = minimize_parallel(fun=energy.total_energy, x0=cells, args=args, jac=energy.total_energy_gradient,
         options={"maxfun" : 10**5, "maxiter" : 10**5})
         print(soln["success"])
         cells = soln.x        
@@ -141,4 +169,12 @@ if __name__ == '__main__':
         cells, cparams, Adh = Adh_funcs.rotation_and_shift(cells, cells_,
                                 cparams, Adh)
 
-        
+    # Save the data
+    #with open("data.npy", "wb") as f:
+    #    np.save(f, CELLS)
+    #    np.save(f, CPARAMS)
+    #    np.save(f, ADH)
+    #    np.save(f, ADH0)
+    #    np.save(f, CADH0)
+    #    np.save(f, CP0)
+

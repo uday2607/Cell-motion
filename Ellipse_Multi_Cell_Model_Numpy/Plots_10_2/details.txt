@@ -1,0 +1,23 @@
+a = 6
+b = 3
+L = 40
+Num = 10
+Nadh = 64
+k_plus = 0.5
+dt = 1
+lamda = 0.5
+tau = 30
+T_S = 50000
+k_s = 0.001
+k_m = 1
+k_out_out = 20.0
+k_in_out = k_out_out*100
+k_in_in = k_in_out*100
+fThreshold = 0.1
+k_b = 0.001
+k_f = 0.0001
+alpha = 10
+
+contraction -> k_plus/20, uniform pi
+protrusion -> 2*alpha, k_plus/10, theta gauss pi/4, rho uniform 0.5 1
+k_const -> 4*(1.+np.cos(2.*(theta_c-theta_i)))*(1.+np.cos(2.*(theta_c-theta_j)))

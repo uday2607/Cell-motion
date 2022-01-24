@@ -77,7 +77,7 @@ def overlap_energy(cells, cparams, num_i, Ovlaps,
 
             # Constants
             theta_c = np.arctan2(y2 - y1, x2 - x1)
-            k_const = 4*(1.+np.cos(2.*(theta_c-theta_i)))*(1.+np.cos(2.*(theta_c-theta_j)))
+            k_const = 4*(1.+0.5*np.cos(2.*(theta_c-theta_i)))*(1.+0.5*np.cos(2.*(theta_c-theta_j)))
 
             #find the overlap area
             energy = pair_overlap_energy(ell_i_out, ell_i_in, ell_j_out, ell_j_in, 
@@ -122,7 +122,7 @@ def total_overlap_energy(cells, cparams, Ovlaps,
 
                 # Constants
                 theta_c = np.arctan2(y2 - y1, x2 - x1)
-                k_const = 4*(1.+np.cos(2.*(theta_c-theta_i)))*(1.+np.cos(2.*(theta_c-theta_j)))
+                k_const = 4*(1.+0.5*np.cos(2.*(theta_c-theta_i)))*(1.+0.5*np.cos(2.*(theta_c-theta_j)))
 
                 if Eovlaps[num_i, num_j] == 0:
                     E = pair_overlap_energy(ell_i_out, ell_i_in, ell_j_out, ell_j_in, 
@@ -274,7 +274,7 @@ def total_energy(cells, cparams, Ovlaps, Adh, Adh0,
 
                 # Constants
                 theta_c = np.arctan2(y2 - y1, x2 - x1)
-                k_const = 4*(1.+np.cos(2.*(theta_c-theta_i)))*(1.+np.cos(2.*(theta_c-theta_j)))
+                k_const = 4*(1.+0.5*np.cos(2.*(theta_c-theta_i)))*(1.+0.5*np.cos(2.*(theta_c-theta_j)))
 
                 if Eovlaps[num_i, num_j] == 0:
                     E = pair_overlap_energy(ell_i_out, ell_i_in, ell_j_out, ell_j_in, 
@@ -336,7 +336,7 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
 
                 # Constants
                 theta_c = np.arctan2(y2 - y1, x2 - x1)
-                k_const = 4*(1.+np.cos(2.*(theta_c-theta_i)))*(1.+np.cos(2.*(theta_c-theta_j)))
+                k_const = 4*(1.+0.5*np.cos(2.*(theta_c-theta_i)))*(1.+0.5*np.cos(2.*(theta_c-theta_j)))
 
                 if overlap_energy[num_i, num_j] == 0:
                     E = pair_overlap_energy(ell_out[num_i], ell_in[num_i],
@@ -390,7 +390,7 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
 
                 # Constants
                 theta_c = np.arctan2(y2 - y1, x2 - x1)
-                k_const = 4*(1.+np.cos(2.*(theta_c-theta_i)))*(1.+np.cos(2.*(theta_c-theta_j)))
+                k_const = 4*(1.+0.5*np.cos(2.*(theta_c-theta_i)))*(1.+0.5*np.cos(2.*(theta_c-theta_j)))
 
                 E = pair_overlap_energy(ell_out[num_i], ell_in[num_i],
                         ell_out[num_j], ell_in[num_j], 
@@ -443,7 +443,7 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
 
                 # Constants
                 theta_c = np.arctan2(y2 - y1, x2 - x1)
-                k_const = 4*(1.+np.cos(2.*(theta_c-theta_i)))*(1.+np.cos(2.*(theta_c-theta_j)))
+                k_const = 4*(1.+0.5*np.cos(2.*(theta_c-theta_i)))*(1.+0.5*np.cos(2.*(theta_c-theta_j)))
 
                 E = pair_overlap_energy(ell_out[num_i], ell_in[num_i],
                         ell_out[num_j], ell_in[num_j], 

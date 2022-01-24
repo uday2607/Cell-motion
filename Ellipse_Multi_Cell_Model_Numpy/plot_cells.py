@@ -57,7 +57,7 @@ def plot_ellipses(cells, cparams, Adh, Adh0, a, b, t):
     for e in polygonize(ells_out):
         verts = np.array(e.exterior.coords.xy)
         patch = Polygon(verts.T, facecolor = 'blue', alpha = 0.5, linestyle = "-",
-                        edgecolor="black", linewidth = 2, zorder=50)
+                        edgecolor="black", linewidth = 3, zorder=30)
         ax.add_patch(patch)
 
     #ells_in = unary_union(ells_in)
@@ -69,14 +69,14 @@ def plot_ellipses(cells, cparams, Adh, Adh0, a, b, t):
     #Polarity vector
     ax.quiver(*np.array([X, Y]), np.array(U), np.array(V), units='xy', angles="xy", scale=1, linewidth=.5, zorder=100)
 
-    lc = mc.LineCollection(liness, colors="black", linewidths=1, zorder=0)
+    lc = mc.LineCollection(liness, colors="black", linewidths=1.5, zorder=50)
     ax.add_collection(lc)
     x1 = [j[0][0] for j in liness]
     y1 = [j[0][1] for j in liness]
     x2 = [j[1][0] for j in liness]
     y2 = [j[1][1] for j in liness]
-    ax.scatter(x1, y1, color="orange", s=1.5, zorder=50)
-    ax.scatter(x2, y2, color="green", s=1.5, zorder=50)
+    ax.scatter(x1, y1, color="orange", s=4, zorder=50)
+    ax.scatter(x2, y2, color="green", s=4, zorder=50)
 
     multiplier = 10.0
     for axis, setter in [(ax.xaxis, ax.set_xlim), (ax.yaxis, ax.set_ylim)]:

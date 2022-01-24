@@ -17,7 +17,6 @@ fThreshold = 0.1
 k_b = 0.001
 k_f = 0.0001
 alpha = 10
-a_min = a
 
 contraction -> k_plus/20, uniform pi
 protrusion -> 3*alpha, k_plus/10, gauss pi/2
