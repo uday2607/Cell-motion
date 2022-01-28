@@ -149,9 +149,15 @@ def rotation_and_shift(cells, cell_p, cparams, Adh):
 """"""
 
 """Contraction of cell -> contraction of Adh sites"""
-#@nb.jit(nopython = True, nogil = True)
-def contraction(cells, num, cparams, Ovlaps, Adh, Adh0, lamda, tau,
+@nb.jit(nopython = True, nogil = True)
+def contraction(cells_, num, cparams_, Ovlaps, Adh_, Adh0_, lamda, tau,
                 dt, T_S, k_out_out, k_in_out, k_in_in, k_s, a_min):
+
+    #copy the arrays
+    cells = cells_.copy()
+    cparams = cparams_.copy()
+    Adh = Adh_.copy()
+    Adh0_ = Adh0_.copy()
 
     #Sanity check
     #dtheta should be zero
@@ -161,11 +167,12 @@ def contraction(cells, num, cparams, Ovlaps, Adh, Adh0, lamda, tau,
             print("Stop the code")
 
     #compute tension due to other cells pulling outwards
-    T = compute_tension(cells, num, cparams, Ovlaps, Adh, Adh0,
+    T = compute_tension(cells_, num, cparams_, Ovlaps, Adh_, Adh0_,
                         k_out_out, k_in_out, k_in_in, k_s)
 
     #Tension is less than critical tension
     if (T < T_S and T > 0):
+        print("Tension:", T)
         c = lamda*dt*(1-T/T_S)/(tau)
 
         # Update a and phase
@@ -187,6 +194,7 @@ def contraction(cells, num, cparams, Ovlaps, Adh, Adh0, lamda, tau,
                               c*sin(theta)*sin(theta)*y)
 
     elif (T <= 0):
+        print("Tension:", T)
         # negative tension means no stalling
         c = lamda*dt/(tau)
 
@@ -214,7 +222,7 @@ def contraction(cells, num, cparams, Ovlaps, Adh, Adh0, lamda, tau,
         #Update Phase
         cparams[4*num+3] += 1
         c_flag = False
-        print("Tension:", T)
+        print("Tension (critical):", T)
 
     #Change phase if the contraction phase is over
     if cparams[4*num+3] > 0 and cparams[4*num] < a_min:
@@ -248,9 +256,15 @@ def shortest_distance(points, a, b, c):
     return d
 
 #Protrusion function
-#@nb.jit(nopython = True, nogil = True)
-def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps, lamda, tau, a, a_min,
+@nb.jit(nopython = True, nogil = True)
+def protrusion(cells_, num, Adh_, Adh0_, cparams_, Ovlaps, lamda, tau, a, a_min,
             k_out_out, k_in_out, k_in_in, k_s, T_S):
+
+    #copy the arrays
+    cells = cells_.copy()
+    cparams = cparams_.copy()
+    Adh = Adh_.copy()
+    Adh0 = Adh0_.copy()
 
     #Sanity check
     #dtheta should be zero
@@ -260,11 +274,12 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps, lamda, tau, a, a_min,
             print("Stop the code")
 
     #compute tension due to other cells pulling outwards
-    T = -1.0*compute_tension(cells, num, cparams, Ovlaps, Adh, Adh0,
+    T = -1.0*compute_tension(cells_, num, cparams_, Ovlaps, Adh_, Adh0_,
                         k_out_out, k_in_out, k_in_in, k_s)
     #(-ve sign for Tension to account for opposite direction of gradient)
 
     if (T < T_S and T > 0):
+        print("Tension:", T)
         #Adhesion speed
         c = 10/tau*(1 - T/T_S)
 
@@ -308,6 +323,7 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps, lamda, tau, a, a_min,
             cells[3*num], cells[3*num+1] = xn, yn
 
     elif T < 0.0:
+        print("Tension:", T)
         #Adhesion speed
         c = 10/tau
 
@@ -351,6 +367,7 @@ def protrusion(cells, num, Adh, Adh0, cparams, Ovlaps, lamda, tau, a, a_min,
             cells[3*num], cells[3*num+1] = xn, yn
 
     else:
+        print("Tension (critical) :", T)
         cparams[4*num+3] -= 1
         p_flag = False
 

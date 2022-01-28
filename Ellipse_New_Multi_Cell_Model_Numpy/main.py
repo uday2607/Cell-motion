@@ -12,16 +12,17 @@ if __name__ == '__main__':
     a = 6
     b = 3
     L = 40
-    Num = 10
+    Num = 5
     Nadh = 100
     k_plus = 0.01
-    lamda = 0.5
-    tau = 60
+    lamda = 0.4
+    tau = 30
     dt = 60/tau
-    T_S = 8000
+    T_S_c = 10000
+    T_S_p = 100000
     k_s = 1.0
     k_m = 1
-    k_out_out = 40.0
+    k_out_out = 100.0
     k_in_out = k_out_out*1000
     k_in_in = k_in_out*1000
     fThreshold = 0.005*k_s
@@ -71,58 +72,65 @@ if __name__ == '__main__':
         #Find overlap between cells
         Ovlaps = Cell_funcs.find_overlaps(cells, cparams, Ovlaps)
 
+        #Make array copies
+        cparams_ = cparams.copy()
+        Adh_ = Adh.copy()
+        Adh0_ = Adh0.copy()
+        cAdh0_ = cAdh0.copy()
+        cp0_ = cp0.copy()
+
         #update cells
         for num in range(Num):
             #cell extension
-            if cparams[4*num+3] > 0:
+            if cparams_[4*num+3] > 0:
                 #Contract
                 print('c')
                 cparams[4*num:(4*num+4)], Adh[num], c_flag = Adh_funcs.contraction(cells, \
-                                                num, cparams, Ovlaps, Adh, Adh0, \
-                                                lamda, tau, dt, T_S, \
+                                                num, cparams_, Ovlaps, Adh_, Adh0_, \
+                                                lamda, tau, dt, T_S_c, \
                                                 k_out_out, k_in_out, k_in_in, k_s, a_min)
 
                 #Old bonds detach
                 print("detach")
-                if cparams[4*num+3] == 2:
+                if cparams_[4*num+3] == 2:
                     #first phase
                     Adh[num], Adh0[num], cAdh0[num], cp0[num] = Adh_funcs.mature(cells[3*num:(3*num+3)],
-                                        Adh[num], Adh0[num], cAdh0[num], cp0[num],
+                                        Adh_[num], Adh0_[num], cAdh0_[num], cp0_[num],
                                         k_m, fThreshold, dt, rng)
-                elif cparams[4*num+3] > 2:
+                elif cparams_[4*num+3] > 2:
                     #detach
                     Adh[num], Adh0[num], cAdh0[num], cp0[num] = Adh_funcs.detach(cells[3*num:(3*num+3)],
-                                        cparams[4*num:4*num+4], cAdh0[num], cp0[num],
-                                        Adh[num], Adh0[num],
+                                        cparams_[4*num:4*num+4], cAdh0_[num], cp0_[num],
+                                        Adh_[num], Adh0_[num],
                                         k_b, k_f, alpha, a, dt, rng)
 
                 print("new")
                 Adh0[num], Adh[num], cAdh0[num], cp0[num] = Adh_funcs.one_cell_random_adh(a, b, cells,
-                                        num, cparams, Adh, Adh0, cAdh0, cp0, Nadh,
+                                        num, cparams_, Adh_, Adh0_, cAdh0_, cp0_, Nadh,
                                        0.5*k_plus, dt)
 
                 with open("distance_data.txt", "a+") as f:
                     f.write("{}\t{}\t{}\t{}\n".format(cells[0], cells[1], t, "c"))
 
-            elif cparams[4*num+3] < 0:
+            elif cparams_[4*num+3] < 0:
                 #Protrusion
                 print('p')
                 cells[3*num:(3*num+3)], cparams[4*num:(4*num+4)], \
-                Adh[num], p_flag = Adh_funcs.protrusion(cells, num, Adh, Adh0, cparams, Ovlaps,
-                            lamda, tau, a, a_min, k_out_out, k_in_out, k_in_in, k_s, T_S)
+                Adh[num], p_flag = Adh_funcs.protrusion(cells, num, Adh_, Adh0_, cparams_, Ovlaps,
+                            lamda, tau, a, a_min, k_out_out, k_in_out, k_in_in, k_s, T_S_p)
 
                 #Old bonds detach -> New bonds form
                 print("detach")
                 Adh[num], Adh0[num], cAdh0[num], cp0[num]= Adh_funcs.detach(cells[3*num:(3*num+3)],
-                                    cparams[4*num:4*num+4], cAdh0[num], cp0[num],
-                                    Adh[num], Adh0[num],
+                                    cparams_[4*num:4*num+4], cAdh0_[num], cp0_[num],
+                                    Adh_[num], Adh0_[num],
                                     k_b, k_f, alpha, a, dt, rng)
 
                 #New adhesions at a smaller rate
                 print("new")
                 if p_flag:
                     Adh0[num], Adh[num], cAdh0[num], cp0[num] = Adh_funcs.one_cell_random_adh(a, b, cells,
-                                        num, cparams, Adh, Adh0, cAdh0, cp0, Nadh,
+                                        num, cparams_, Adh_, Adh0_, cAdh0_, cp0_, Nadh,
                                         2*k_plus, dt)
 
                 with open("distance_data.txt", "a+") as f:
@@ -150,8 +158,8 @@ if __name__ == '__main__':
 
         print(energy.total_energy(cells, cparams, Ovlaps, Adh, Adh0,
                 k_s, k_out_out, k_in_out, k_in_in))
-        soln = minimize_parallel(fun=energy.total_energy, x0=cells, args=args, jac=energy.total_energy_gradient,
-        options={"maxfun" : 10**5, "maxiter" : 10**5})
+        soln = minimize(fun=energy.total_energy, x0=cells, args=args, jac=energy.total_energy_gradient,
+        options={"maxfun" : 10**5, "maxiter" : 10**5}, method="L-BFGS-B")
         print(soln["success"])
         cells = soln.x
         print(energy.total_energy(cells, cparams, Ovlaps, Adh, Adh0,

@@ -258,8 +258,8 @@ def total_energy(cells, cparams, Ovlaps, Adh, Adh0,
                                     theta_i)
 
         # constrained energy
-        total_energy += 1e6*np.any(ell_i_out.T[1] > Y_MAX)
-        total_energy += 1e6*np.any(ell_i_out.T[1] < Y_MIN)
+        total_energy += 1e10*np.any(ell_i_out.T[1] > Y_MAX)
+        total_energy += 1e10*np.any(ell_i_out.T[1] < Y_MIN)
 
         #Adhesion energy
         total_energy += adhesion_energy(cells, num_i, Adh, Adh0, k_s)
@@ -381,8 +381,8 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
         ell_in[num_i] = ell_i_in
 
         # constrained energy
-        e2 += 1e6*np.any(ell_out[num_i].T[1] > Y_MAX)
-        e2 += 1e6*np.any(ell_in[num_i].T[1] < Y_MIN)
+        e2 += 1e10*np.any(ell_out[num_i].T[1] > Y_MAX)
+        e2 += 1e10*np.any(ell_in[num_i].T[1] < Y_MIN)
 
         #Adhesion energy
         adh_energy[num_i] = adhesion_energy(cells, num_i, Adh, Adh0, k_s)
@@ -438,8 +438,8 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
         ell_in[num_i] = ell_i_in
 
         # constrained energy
-        e1 += 1e6*np.any(ell_out[num_i].T[1] > Y_MAX)
-        e1 += 1e6*np.any(ell_in[num_i].T[1] < Y_MIN)
+        e1 += 1e10*np.any(ell_out[num_i].T[1] > Y_MAX)
+        e1 += 1e10*np.any(ell_in[num_i].T[1] < Y_MIN)
 
         #Adhesion energy
         adh_energy[num_i] = adhesion_energy(cells, num_i, Adh, Adh0, k_s)

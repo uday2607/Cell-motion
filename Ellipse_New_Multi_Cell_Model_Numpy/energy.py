@@ -2,6 +2,7 @@ import numpy as np
 from Cell_funcs import *
 from Adh_funcs import *
 import numba as nb
+import math
 
 @nb.jit(nopython = True, nogil = True)
 def adhesion_energy(cells, num, Adh, Adh0, k_s):
@@ -51,8 +52,57 @@ def pair_overlap_energy(ell_i_out, ell_i_in, ell_j_out, ell_j_in, k_const,
     return oval_energy
 
 @nb.jit(nopython = True, nogil = True)
-def overlap_energy(cells, cparams, num_i, Ovlaps,
+def total_overlap_energy(cells, cparams, Ovlaps,
                 k_out_out, k_in_out, k_in_in):
+
+    total_energy = 0
+
+    #Find the overlaps
+    Ovlaps = find_overlaps(cells, cparams, Ovlaps)
+    Eovlaps = np.zeros(Ovlaps.shape)
+
+    for num_i in range(cells.shape[0]//3):
+
+        #Cell coordinates
+        x1, y1 = cells[3*num_i],cells[3*num_i+1]
+        a1, b1 = cparams[4*num_i],cparams[4*num_i+1]
+        theta_i = cparams[4*num_i+2] + cells[3*num_i+2]
+        theta_i -= 2.0*pi*math.floor((theta_i + pi)*(1.0/(2.0*pi)))
+
+        if np.any(Ovlaps[num_i] == 1):
+            ind = np.arange(cells.shape[0]//3)[Ovlaps[num_i] == 1]
+
+            # Ellipse
+            ell_i_out, ell_i_in = create_ellipse((x1, y1), (a1, b1),
+                                        theta_i)
+
+            for num_j in ind:
+                x2, y2 = cells[3*num_j],cells[3*num_j+1]
+                a2, b2 = cparams[4*num_j],cparams[4*num_j+1]
+                theta_j = cparams[4*num_j+2] + cells[3*num_j+2]
+                theta_j -= 2.0*pi*math.floor((theta_j + pi)*(1.0/(2.0*pi)))
+
+                # Ellipse
+                ell_j_out, ell_j_in = create_ellipse((x2, y2), (a2, b2),
+                                        theta_j)
+
+                # Constants
+                theta_c = np.arctan2(y2 - y1, x2 - x1)
+                k_const = (2.+1.0*np.cos(2.*(theta_c-theta_i)))*(2.+1.0*np.cos(2.*(theta_c-theta_j)))
+
+                if Eovlaps[num_i, num_j] == 0:
+                    E = pair_overlap_energy(ell_i_out, ell_i_in, ell_j_out, ell_j_in,
+                            k_const, k_out_out, k_in_out, k_in_in)
+                    Eovlaps[num_i, num_j] = E
+                    Eovlaps[num_i, num_j] = E
+
+    total_energy += Eovlaps.sum()
+
+    return total_energy
+
+@nb.jit(nopython = True, nogil = True)
+def tension_overlap_energy(cells, cparams, num_i, Ovlaps,
+                k_out_out, k_in_out, k_in_in, h):
 
     oval_energy = 0.0
 
@@ -72,67 +122,27 @@ def overlap_energy(cells, cparams, num_i, Ovlaps,
             a2, b2 = cparams[4*num_j],cparams[4*num_j+1]
             theta_j = cparams[4*num_j+2] + cells[3*num_j+2]
 
-            # Ellipse 
+            # If Contraction -> decrease 'a'
+            if cparams[4*num_j+3] > 0:
+                a2 -= h # for a +/- 2h step
+            else:
+                # protrusion -> increase 'h'
+                a2 += h
+
+            # Ellipse
             ell_j_out, ell_j_in = create_ellipse((x2, y2), (a2, b2), theta_j)
 
             # Constants
             theta_c = np.arctan2(y2 - y1, x2 - x1)
-            k_const = (1.+0.8*np.cos(2.*(theta_c-theta_i)))*(1.+0.8*np.cos(2.*(theta_c-theta_j)))
+            k_const = (2.+1.0*np.cos(2.*(theta_c-theta_i)))*(2.+1.0*np.cos(2.*(theta_c-theta_j)))
 
             #find the overlap area
-            energy = pair_overlap_energy(ell_i_out, ell_i_in, ell_j_out, ell_j_in, 
+            energy = pair_overlap_energy(ell_i_out, ell_i_in, ell_j_out, ell_j_in,
                         k_const, k_out_out, k_in_out, k_in_in)
 
             oval_energy += energy
 
     return oval_energy
-
-@nb.jit(nopython = True, nogil = True)
-def total_overlap_energy(cells, cparams, Ovlaps,
-                k_out_out, k_in_out, k_in_in):
-
-    total_energy = 0
-
-    #Find the overlaps
-    Ovlaps = find_overlaps(cells, cparams, Ovlaps)
-    Eovlaps = np.zeros(Ovlaps.shape)
-
-    for num_i in range(cells.shape[0]//3):
-
-        #Cell coordinates
-        x1, y1 = cells[3*num_i],cells[3*num_i+1]
-        a1, b1 = cparams[4*num_i],cparams[4*num_i+1]
-        theta_i = cparams[4*num_i+2] + cells[3*num_i+2]
-
-        if np.any(Ovlaps[num_i] == 1):
-            ind = np.arange(cells.shape[0]//3)[Ovlaps[num_i] == 1]
-
-            # Ellipse
-            ell_i_out, ell_i_in = create_ellipse((x1, y1), (a1, b1), 
-                                        theta_i)
-
-            for num_j in ind:
-                x2, y2 = cells[3*num_j],cells[3*num_j+1]
-                a2, b2 = cparams[4*num_j],cparams[4*num_j+1]
-                theta_j = cparams[4*num_j+2] + cells[3*num_j+2]
-
-                # Ellipse 
-                ell_j_out, ell_j_in = create_ellipse((x2, y2), (a2, b2), 
-                                        theta_j)
-
-                # Constants
-                theta_c = np.arctan2(y2 - y1, x2 - x1)
-                k_const = (1.+0.8*np.cos(2.*(theta_c-theta_i)))*(1.+0.8*np.cos(2.*(theta_c-theta_j)))
-
-                if Eovlaps[num_i, num_j] == 0:
-                    E = pair_overlap_energy(ell_i_out, ell_i_in, ell_j_out, ell_j_in, 
-                            k_const, k_out_out, k_in_out, k_in_in)       
-                    Eovlaps[num_i, num_j] = E
-                    Eovlaps[num_i, num_j] = E
-    
-    total_energy += Eovlaps.sum()
-
-    return total_energy
 
 # Virtual contraction
 @nb.jit(nopython = True, nogil = True)
@@ -199,41 +209,25 @@ def compute_tension(cells_, num, cparams, Ovlaps_, Adh_, Adh0, k_out_out,
 
     step = 1e-3
 
-    #Extension - a + h increase
-    cp[4*num:4*num+4], Adh[num] = virtual_extension(cp_[4*num:4*num+4],
-                                Adh_[num], step)
-    ce3 = overlap_energy(cells, cp, num, Ovlaps,
-                        k_out_out, k_in_out, k_in_in)
-    ae3 = adhesion_energy(cells, num, Adh, Adh0, k_s)
-    e3 = ce3 + ae3
-
-    #Extension - a + 2h increase
-    cp[4*num:4*num+4], Adh[num] = virtual_extension(cp[4*num:4*num+4],
-                                Adh[num], step)
-    ce4 = overlap_energy(cells, cp, num, Ovlaps,
-                        k_out_out, k_in_out, k_in_in)
-    ae4 = adhesion_energy(cells, num, Adh, Adh0, k_s)
-    e4 = ce4 + ae4
-
     #Contraction - a - h decrease
     cp[4*num:4*num+4], Adh[num] = virtual_contraction(cp_[4*num:4*num+4],
                                 Adh_[num], step)
-    ce2 = overlap_energy(cells, cp, num, Ovlaps,
-                        k_out_out, k_in_out, k_in_in)
-    ae2 = adhesion_energy(cells, num, Adh, Adh0, k_s)
-    e2 = ce2 + ae2
-
-    #Contraction - a - 2h decrease
-    cp[4*num:4*num+4], Adh[num] = virtual_contraction(cp[4*num:4*num+4],
-                                Adh[num], step)
-    ce1 = overlap_energy(cells, cp, num, Ovlaps,
-                        k_out_out, k_in_out, k_in_in)
+    ce1 = tension_overlap_energy(cells, cp, num, Ovlaps,
+                        k_out_out, k_in_out, k_in_in, step)
     ae1 = adhesion_energy(cells, num, Adh, Adh0, k_s)
     e1 = ce1 + ae1
 
+    #Extension - a + h increase
+    cp[4*num:4*num+4], Adh[num] = virtual_extension(cp_[4*num:4*num+4],
+                                Adh_[num], step)
+    ce2 = tension_overlap_energy(cells, cp, num, Ovlaps,
+                        k_out_out, k_in_out, k_in_in, step)
+    ae2 = adhesion_energy(cells, num, Adh, Adh0, k_s)
+    e2 = ce2 + ae2
+
     #five point difference formula
     #(Force = -dU/dx)
-    return -(e1 - 8*e2 + 8*e3 - e4)/(12*step)
+    return -(e2 - e1)/(2*step)
 
 #Total Energy
 @nb.jit(nopython = True, nogil = True)
@@ -255,33 +249,35 @@ def total_energy(cells, cparams, Ovlaps, Adh, Adh0,
         x1, y1 = cells[3*num_i],cells[3*num_i+1]
         a1, b1 = cparams[4*num_i],cparams[4*num_i+1]
         theta_i = cparams[4*num_i+2] + cells[3*num_i+2]
+        theta_i -= 2.0*pi*math.floor((theta_i + pi)*(1.0/(2.0*pi)))
 
         if np.any(Ovlaps[num_i] == 1):
             ind = np.arange(cells.shape[0]//3)[Ovlaps[num_i] == 1]
 
             # Ellipse
-            ell_i_out, ell_i_in = create_ellipse((x1, y1), (a1, b1), 
+            ell_i_out, ell_i_in = create_ellipse((x1, y1), (a1, b1),
                                         theta_i)
 
             for num_j in ind:
                 x2, y2 = cells[3*num_j],cells[3*num_j+1]
                 a2, b2 = cparams[4*num_j],cparams[4*num_j+1]
                 theta_j = cparams[4*num_j+2] + cells[3*num_j+2]
+                theta_j -= 2.0*pi*math.floor((theta_j + pi)*(1.0/(2.0*pi)))
 
-                # Ellipse 
-                ell_j_out, ell_j_in = create_ellipse((x2, y2), (a2, b2), 
+                # Ellipse
+                ell_j_out, ell_j_in = create_ellipse((x2, y2), (a2, b2),
                                         theta_j)
 
                 # Constants
                 theta_c = np.arctan2(y2 - y1, x2 - x1)
-                k_const = (1.+0.8*np.cos(2.*(theta_c-theta_i)))*(1.+0.8*np.cos(2.*(theta_c-theta_j)))
+                k_const = (2.+1.0*np.cos(2.*(theta_c-theta_i)))*(2.+1.0*np.cos(2.*(theta_c-theta_j)))
 
                 if Eovlaps[num_i, num_j] == 0:
-                    E = pair_overlap_energy(ell_i_out, ell_i_in, ell_j_out, ell_j_in, 
-                            k_const, k_out_out, k_in_out, k_in_in)       
+                    E = pair_overlap_energy(ell_i_out, ell_i_in, ell_j_out, ell_j_in,
+                            k_const, k_out_out, k_in_out, k_in_in)
                     Eovlaps[num_i, num_j] = E
                     Eovlaps[num_j, num_i] = E
-    
+
     total_energy += Eovlaps.sum()
 
     return total_energy
@@ -308,10 +304,11 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
         x1, y1 = cells[3*num_i],cells[3*num_i+1]
         a1, b1 = cparams[4*num_i],cparams[4*num_i+1]
         theta_i = cparams[4*num_i+2] + cells[3*num_i+2]
+        theta_i -= 2.0*pi*math.floor((theta_i + pi)*(1.0/(2.0*pi)))
 
         ell_i_out, ell_i_in = create_ellipse((x1, y1), (a1, b1), theta_i)
         ell_out[num_i] = ell_i_out
-        ell_in[num_i] = ell_i_in 
+        ell_in[num_i] = ell_i_in
 
     # Compute the energy once to populate all the arrays
     # Find the overlaps
@@ -325,6 +322,7 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
         #Cell 1 coordinates
         x1, y1 = cells[3*num_i],cells[3*num_i+1]
         theta_i = cparams[4*num_i+2] + cells[3*num_i+2]
+        theta_i -= 2.0*pi*math.floor((theta_i + pi)*(1.0/(2.0*pi)))
 
         if np.any(Ovlaps[num_i] == 1):
             ind = np.arange(cells.shape[0]//3)[Ovlaps[num_i] == 1]
@@ -333,17 +331,18 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
                 #Cell 2 cooridnates
                 x2, y2 = cells[3*num_j],cells[3*num_j+1]
                 theta_j = cparams[4*num_j+2] + cells[3*num_j+2]
+                theta_j -= 2.0*pi*math.floor((theta_j + pi)*(1.0/(2.0*pi)))
 
                 # Constants
                 theta_c = np.arctan2(y2 - y1, x2 - x1)
-                k_const = (1.+0.8*np.cos(2.*(theta_c-theta_i)))*(1.+0.8*np.cos(2.*(theta_c-theta_j)))
+                k_const = (2.+1.0*np.cos(2.*(theta_c-theta_i)))*(2.+1.0*np.cos(2.*(theta_c-theta_j)))
 
                 if overlap_energy[num_i, num_j] == 0:
                     E = pair_overlap_energy(ell_out[num_i], ell_in[num_i],
-                            ell_out[num_j], ell_in[num_j], 
+                            ell_out[num_j], ell_in[num_j],
                             k_const, k_out_out, k_in_out, k_in_in)
                     overlap_energy[num_i, num_j] = E
-                    overlap_energy[num_j, num_i] = E                   
+                    overlap_energy[num_j, num_i] = E
 
     # Now compute the gradient
     for i in range(cells.shape[0]):
@@ -360,7 +359,7 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
         if i % 3 != 2:
             cells[i] += step_x
         else:
-            cells[i] += step_th    
+            cells[i] += step_th
 
         # Compute the ovlap indices
         Ovlaps = find_overlaps_ind(cells, cparams, Ovlaps, i//3)
@@ -371,10 +370,11 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
         x1, y1 = cells[3*num_i],cells[3*num_i+1]
         a1, b1 = cparams[4*num_i],cparams[4*num_i+1]
         theta_i = cparams[4*num_i+2] + cells[3*num_i+2]
+        theta_i -= 2.0*pi*math.floor((theta_i + pi)*(1.0/(2.0*pi)))
 
         ell_i_out, ell_i_in = create_ellipse((x1, y1), (a1, b1), theta_i)
         ell_out[num_i] = ell_i_out
-        ell_in[num_i] = ell_i_in 
+        ell_in[num_i] = ell_i_in
 
         #Adhesion energy
         adh_energy[num_i] = adhesion_energy(cells, num_i, Adh, Adh0, k_s)
@@ -387,13 +387,14 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
                 #Cell 2 cooridnates
                 x2, y2 = cells[3*num_j],cells[3*num_j+1]
                 theta_j = cparams[4*num_j+2] + cells[3*num_j+2]
+                theta_j -= 2.0*pi*math.floor((theta_j + pi)*(1.0/(2.0*pi)))
 
                 # Constants
                 theta_c = np.arctan2(y2 - y1, x2 - x1)
-                k_const = (1.+0.8*np.cos(2.*(theta_c-theta_i)))*(1.+0.8*np.cos(2.*(theta_c-theta_j)))
+                k_const = (2.+1.0*np.cos(2.*(theta_c-theta_i)))*(2.+1.0*np.cos(2.*(theta_c-theta_j)))
 
                 E = pair_overlap_energy(ell_out[num_i], ell_in[num_i],
-                        ell_out[num_j], ell_in[num_j], 
+                        ell_out[num_j], ell_in[num_j],
                         k_const, k_out_out, k_in_out, k_in_in)
                 overlap_energy[num_i, num_j] = E
                 overlap_energy[num_j, num_i] = E
@@ -413,7 +414,7 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
         if i % 3 != 2:
             cells[i] -= step_x
         else:
-            cells[i] -= step_th    
+            cells[i] -= step_th
 
         # Compute the ovlap indices
         Ovlaps = find_overlaps_ind(cells, cparams, Ovlaps, i//3)
@@ -424,10 +425,11 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
         x1, y1 = cells[3*num_i],cells[3*num_i+1]
         a1, b1 = cparams[4*num_i],cparams[4*num_i+1]
         theta_i = cparams[4*num_i+2] + cells[3*num_i+2]
+        theta_i -= 2.0*pi*math.floor((theta_i + pi)*(1.0/(2.0*pi)))
 
         ell_i_out, ell_i_in = create_ellipse((x1, y1), (a1, b1), theta_i)
         ell_out[num_i] = ell_i_out
-        ell_in[num_i] = ell_i_in 
+        ell_in[num_i] = ell_i_in
 
         #Adhesion energy
         adh_energy[num_i] = adhesion_energy(cells, num_i, Adh, Adh0, k_s)
@@ -440,18 +442,19 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
                 #Cell 2 cooridnates
                 x2, y2 = cells[3*num_j],cells[3*num_j+1]
                 theta_j = cparams[4*num_j+2] + cells[3*num_j+2]
+                theta_j -= 2.0*pi*math.floor((theta_j + pi)*(1.0/(2.0*pi)))
 
                 # Constants
                 theta_c = np.arctan2(y2 - y1, x2 - x1)
-                k_const = (1.+0.8*np.cos(2.*(theta_c-theta_i)))*(1.+0.8*np.cos(2.*(theta_c-theta_j)))
+                k_const = (2.+1.0*np.cos(2.*(theta_c-theta_i)))*(2.+1.0*np.cos(2.*(theta_c-theta_j)))
 
                 E = pair_overlap_energy(ell_out[num_i], ell_in[num_i],
-                        ell_out[num_j], ell_in[num_j], 
+                        ell_out[num_j], ell_in[num_j],
                         k_const, k_out_out, k_in_out, k_in_in)
                 overlap_energy[num_i, num_j] = E
                 overlap_energy[num_j, num_i] = E
 
-        e1 = sum(adh_energy) 
+        e1 = sum(adh_energy)
         e1 += overlap_energy.sum()
 
         #revert to original
@@ -467,6 +470,6 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
         if i % 3 != 2:
             grad[i] = 0.5*(e2 - e1)/step_x
         else:
-            grad[i] = 0.5*(e2 - e1)/step_th                  
+            grad[i] = 0.5*(e2 - e1)/step_th
 
     return grad
