@@ -25,7 +25,7 @@ def total_energy(cells, cparams, Ovlaps, Adh, Adh0,
         x1, y1 = cells[3*num_i],cells[3*num_i+1]
         a1, b1 = cparams[4*num_i],cparams[4*num_i+1]
         theta_i = cparams[4*num_i+2] + cells[3*num_i+2]
-        theta_i -= 2.0*pi*math.floor((theta_i + pi)*(1.0/(2.0*pi)))
+        #theta_i -= 2.0*pi*math.floor((theta_i + pi)*(1.0/(2.0*pi)))
 
         if np.any(Ovlaps[num_i] == 1):
             ind = np.arange(cells.shape[0]//3)[Ovlaps[num_i] == 1]
@@ -38,7 +38,7 @@ def total_energy(cells, cparams, Ovlaps, Adh, Adh0,
                 x2, y2 = cells[3*num_j],cells[3*num_j+1]
                 a2, b2 = cparams[4*num_j],cparams[4*num_j+1]
                 theta_j = cparams[4*num_j+2] + cells[3*num_j+2]
-                theta_j -= 2.0*pi*math.floor((theta_j + pi)*(1.0/(2.0*pi)))
+                #theta_j -= 2.0*pi*math.floor((theta_j + pi)*(1.0/(2.0*pi)))
 
                 # Ellipse
                 ells_j = create_ellipse((x2, y2), (a2, b2),
@@ -79,7 +79,7 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
         x1, y1 = cells[3*num_i],cells[3*num_i+1]
         a1, b1 = cparams[4*num_i],cparams[4*num_i+1]
         theta_i = cparams[4*num_i+2] + cells[3*num_i+2]
-        theta_i -= 2.0*pi*math.floor((theta_i + pi)*(1.0/(2.0*pi)))
+        #theta_i -= 2.0*pi*math.floor((theta_i + pi)*(1.0/(2.0*pi)))
 
         ells_i = create_ellipse((x1, y1), (a1, b1), theta_i)
         ells[num_i] = ells_i
@@ -96,7 +96,7 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
         #Cell 1 coordinates
         x1, y1 = cells[3*num_i],cells[3*num_i+1]
         theta_i = cparams[4*num_i+2] + cells[3*num_i+2]
-        theta_i -= 2.0*pi*math.floor((theta_i + pi)*(1.0/(2.0*pi)))
+        #theta_i -= 2.0*pi*math.floor((theta_i + pi)*(1.0/(2.0*pi)))
 
         if np.any(Ovlaps[num_i] == 1):
             ind = np.arange(cells.shape[0]//3)[Ovlaps[num_i] == 1]
@@ -105,7 +105,7 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
                 #Cell 2 cooridnates
                 x2, y2 = cells[3*num_j],cells[3*num_j+1]
                 theta_j = cparams[4*num_j+2] + cells[3*num_j+2]
-                theta_j -= 2.0*pi*math.floor((theta_j + pi)*(1.0/(2.0*pi)))
+                #theta_j -= 2.0*pi*math.floor((theta_j + pi)*(1.0/(2.0*pi)))
 
                 # Constants
                 theta_c = np.arctan2(y2 - y1, x2 - x1)
@@ -144,7 +144,7 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
         x1, y1 = cells[3*num_i],cells[3*num_i+1]
         a1, b1 = cparams[4*num_i],cparams[4*num_i+1]
         theta_i = cparams[4*num_i+2] + cells[3*num_i+2]
-        theta_i -= 2.0*pi*math.floor((theta_i + pi)*(1.0/(2.0*pi)))
+        #theta_i -= 2.0*pi*math.floor((theta_i + pi)*(1.0/(2.0*pi)))
 
         ells_i = create_ellipse((x1, y1), (a1, b1), theta_i)
 
@@ -159,7 +159,7 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
                 #Cell 2 cooridnates
                 x2, y2 = cells[3*num_j],cells[3*num_j+1]
                 theta_j = cparams[4*num_j+2] + cells[3*num_j+2]
-                theta_j -= 2.0*pi*math.floor((theta_j + pi)*(1.0/(2.0*pi)))
+                #theta_j -= 2.0*pi*math.floor((theta_j + pi)*(1.0/(2.0*pi)))
 
                 # Constants
                 theta_c = np.arctan2(y2 - y1, x2 - x1)
@@ -197,7 +197,7 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
         x1, y1 = cells[3*num_i],cells[3*num_i+1]
         a1, b1 = cparams[4*num_i],cparams[4*num_i+1]
         theta_i = cparams[4*num_i+2] + cells[3*num_i+2]
-        theta_i -= 2.0*pi*math.floor((theta_i + pi)*(1.0/(2.0*pi)))
+        #theta_i -= 2.0*pi*math.floor((theta_i + pi)*(1.0/(2.0*pi)))
 
         ells_i = create_ellipse((x1, y1), (a1, b1), theta_i)
 
@@ -212,7 +212,7 @@ def total_energy_gradient(cells, cparams, Ovlaps, Adh, Adh0,
                 #Cell 2 cooridnates
                 x2, y2 = cells[3*num_j],cells[3*num_j+1]
                 theta_j = cparams[4*num_j+2] + cells[3*num_j+2]
-                theta_j -= 2.0*pi*math.floor((theta_j + pi)*(1.0/(2.0*pi)))
+                #theta_j -= 2.0*pi*math.floor((theta_j + pi)*(1.0/(2.0*pi)))
 
                 # Constants
                 theta_c = np.arctan2(y2 - y1, x2 - x1)
