@@ -1,4 +1,4 @@
-from ellipses import *
+from GEOM.ellipses import *
 from random_funcs import *
 
 @nb.jit(nopython = True, nogil = True)
@@ -8,11 +8,11 @@ def noCollision(cells, cparams, ind, a, b, x, y, theta):
         return True
 
     x1, y1 = x, y
-    a1, b1 = a, b
+    a1, b1 = 2*a, 2*b
     t1 = theta
     for i in range(ind):
         x2, y2 = cells[3*i:(3*i+2)]
-        a2, b2 = a, b
+        a2, b2 = 2*a, 2*b
         t2 = cparams[4*i+2]
 
         if check_ell_intersection(x1, y1, a1, b1, t1,
@@ -37,7 +37,7 @@ def preset(a, b, Num):
         else:
             theta = 0
 
-        cells[3*ind:(3*ind+3)] = np.array([20+2*(a-a/4)*ind, 10, 0])
+        cells[3*ind:(3*ind+3)] = np.array([20+4*a*ind, 10, 0])
         cparams[4*ind:(4*ind+4)] = np.array([a, b, theta, 1])
 
     return cells, cparams, Ovlaps
@@ -52,8 +52,8 @@ def linear_preset(a, b, Num):
     Ovlaps = np.zeros((Num, Num)) - 1e8
 
     for ind in range(Num):
-        cells[3*ind:(3*ind+3)] = np.array([20+(a-a/4)*ind, 10, 0])
-        cparams[4*ind:(4*ind+4)] = np.array([a/2, b, 0, 1])
+        cells[3*ind:(3*ind+3)] = np.array([20+4*a*ind, 10, 0])
+        cparams[4*ind:(4*ind+4)] = np.array([a, b, np.pi*(1 - ind//(Num//2)), 1])
 
     return cells, cparams, Ovlaps
 
@@ -69,10 +69,44 @@ def two_linear_preset(a, b, Num):
     Ovlaps = np.zeros((Num, Num)) - 1e8
 
     for ind in range(Num):
-        cells[3*ind:(3*ind+3)] = np.array([20+2*(a-a/4)*(ind%num), 10+2*(b-b/4)*(ind//num), 0])
+        cells[3*ind:(3*ind+3)] = np.array([20+4*a*(ind%num), 10+4*b*(ind//num), 0])
         cparams[4*ind:(4*ind+4)] = np.array([a, b, 0, 1])
 
     return cells, cparams, Ovlaps
+
+@nb.jit(nopython = True, nogil = True)
+def four_linear_preset(a, b, Num):
+
+    num = Num//4
+
+    # x y dtheta
+    cells = np.zeros(Num*3)
+    # a b theta phase
+    cparams = np.zeros(Num*4)
+    Ovlaps = np.zeros((Num, Num)) - 1e8
+
+    for ind in range(Num):
+        cells[3*ind:(3*ind+3)] = np.array([20+4*a*(ind%num), 10+4*b*(ind//num), 0])
+        cparams[4*ind:(4*ind+4)] = np.array([a, b, 0, 1])
+
+    return cells, cparams, Ovlaps
+
+@nb.jit(nopython = True, nogil = True)
+def circular_preset(a, b, Num):
+
+    num = Num//2
+
+    # x y dtheta
+    cells = np.zeros(Num*3)
+    # a b theta phase
+    cparams = np.zeros(Num*4)
+    Ovlaps = np.zeros((Num, Num)) - 1e8
+
+    for ind in range(Num):
+        cells[3*ind:(3*ind+3)] = np.array([20+4*a*(ind%num), 10+4*b*(ind//num), 0])
+        cparams[4*ind:(4*ind+4)] = np.array([a, b, 0, 1])
+
+    return cells, cparams, Ovlaps    
 
 @nb.jit(nopython = True, nogil = True)
 def custom_preset(a, b, Num):
@@ -87,7 +121,7 @@ def custom_preset(a, b, Num):
     Ovlaps = np.zeros((Num, Num)) - 1e8
 
     for ind in range(Num):
-        cells[3*ind:(3*ind+3)] = np.array([20+2*(a-1)*(ind%num), 10+2*(b-0.5)*(ind//num), 0])
+        cells[3*ind:(3*ind+3)] = np.array([20+4*a*(ind%num), 10+4*b*(ind//num), 0])
         cparams[4*ind:(4*ind+4)] = np.array([a, b, 0, 1])
 
     return cells, cparams, Ovlaps
@@ -120,11 +154,11 @@ def find_overlaps(cells, cparams, Ovlaps):
 
     for i in range(cells.shape[0]//3):
         x1, y1 = cells[3*i], cells[3*i+1]
-        a1, b1 = cparams[4*i], cparams[4*i+1]
+        a1, b1 = 3.0*cparams[4*i], 3.0*cparams[4*i+1]
         t1 = cparams[4*i+2]
         for j in range(i+1, cells.shape[0]//3):
             x2, y2 = cells[3*j], cells[3*j+1]
-            a2, b2 = cparams[4*j], cparams[4*j+1]
+            a2, b2 = 3.0*cparams[4*j], 3.0*cparams[4*j+1]
             t2 = cparams[4*j+2]
 
             if check_ell_intersection(x1, y1, a1, b1, t1,
@@ -141,11 +175,11 @@ def find_overlaps(cells, cparams, Ovlaps):
 def find_overlaps_ind(cells, cparams, Ovlaps, i):
 
     x1, y1 = cells[3*i], cells[3*i+1]
-    a1, b1 = cparams[4*i], cparams[4*i+1]
+    a1, b1 = 3.0*cparams[4*i], 3.0*cparams[4*i+1]
     t1 = cparams[4*i+2]
     for j in range(i+1, cells.shape[0]//3):
         x2, y2 = cells[3*j], cells[3*j+1]
-        a2, b2 = cparams[4*j], cparams[4*j+1]
+        a2, b2 = 3.0*cparams[4*j], 3.0*cparams[4*j+1]
         t2 = cparams[4*j+2]
 
         if check_ell_intersection(x1, y1, a1, b1, t1,

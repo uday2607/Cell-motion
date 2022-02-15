@@ -5,28 +5,32 @@ from scipy.optimize import minimize
 from optimparallel import minimize_parallel
 import numpy as np
 import plot_cells
+import os
 import math
 
 if __name__ == '__main__':
 
-    a = 6
-    b = 3
-    L = 40
-    Num = 5
-    Nadh = 100
-    k_plus = 0.01
-    lamda = 0.4
+    a = 4
+    b = 2
+    L = 1000
+    Num = 12
+    Nadh = 64
+    k_plus = 0.025
+    lamda = 0.2
     tau = 30
     dt = 60/tau
-    T_S_c = 10000
-    T_S_p = 100000
-    k_s = 1.0
+    T_S_c = 1000
+    T_S_p = 1000
+    k_s = 50.0
     k_m = 1
-    k_out_out = 100.0
-    k_in_out = k_out_out*1000
-    k_in_in = k_in_out*1000
-    fThreshold = 0.005*k_s
-    k_b = 0.01
+    E_const = np.zeros((3, 3))
+    E_const[2, 2] = -0.001
+    E_const[1, 1] = 2.0
+    E_const[1, 0] = 5000.0
+    E_const[0, 1] = 5000.0
+    E_const[0, 0] = 10000.0
+    fThreshold = 40.0/k_s
+    k_b = 0.025
     k_f = 0.0025
     alpha = 25
     a_min = a
@@ -41,16 +45,17 @@ if __name__ == '__main__':
     #cells, cparams, Ovlaps = Cell_funcs.random_cells(L, a, b, Num)
     cells, cparams, Ovlaps = Cell_funcs.linear_preset(a, b, Num)
     #cells, cparams, Ovlaps = Cell_funcs.two_linear_preset(a, b, Num)
+    #cells, cparams, Ovlaps = Cell_funcs.four_linear_preset(a, b, Num)
     cparams0 = cparams.copy()
-    Adh0, Adh, cAdh0, cp0 = Adh_funcs.random_adhesions(a, b, cells, cparams, Nadh,
-                                           k_plus, dt)
+    Adh0, Adh, cAdh0, cp0 = Adh_funcs.random_adhesions(cells, cparams, Nadh,
+                                           10*k_plus, dt, rng)
 
-    #CELLS = np.zeros((TIME, cells.shape[0]))
-    #CPARAMS = np.zeros((TIME, cparams.shape[0]))
-    #ADH = np.zeros((TIME, Adh.shape[0], Adh.shape[1], Adh.shape[2]))
-    #ADH0 = np.zeros(ADH.shape)
-    #CADH0 = np.zeros(ADH.shape)
-    #CP0 = np.zeros(ADH.shape)
+    CELLS = np.zeros((TIME, cells.shape[0]))
+    CPARAMS = np.zeros((TIME, cparams.shape[0]))
+    ADH = np.zeros((TIME, Adh.shape[0], Adh.shape[1], Adh.shape[2]))
+    ADH0 = np.zeros(ADH.shape)
+    CADH0 = np.zeros(ADH.shape)
+    CP0 = np.zeros((ADH.shape[0], ADH.shape[1], ADH.shape[2], ADH.shape[3]+1))
 
     with open("distance_data.txt", "w") as f:
         f.write("{}\t{}\t{}\t{}\n".format(cells[0], cells[1], 0.0, "n"))
@@ -58,16 +63,16 @@ if __name__ == '__main__':
     for t in range(TIME):
         print("Time = ", t)
 
-        ## Store data
-        #CELLS[t] = cells.copy()
-        #CPARAMS[t] = cparams.copy()
-        #ADH[t] = Adh.copy()
-        #ADH0[t] = Adh0.copy()
-        #CADH0[t] = cAdh0.copy()
-        #CP0[t] = cp0.copy()
-
         #plot in the beginning
-        plot_cells.plot_ellipses(cells, cparams, Adh, Adh0, a, b, t)
+        plot_cells.plot_ellipses(cells, cparams, Adh, Adh0, a, b, t) 
+
+        ## Store data
+        CELLS[t] = cells.copy()
+        CPARAMS[t] = cparams.copy()
+        ADH[t] = Adh.copy()
+        ADH0[t] = Adh0.copy()
+        CADH0[t] = cAdh0.copy()
+        CP0[t] = cp0.copy()
 
         #Find overlap between cells
         Ovlaps = Cell_funcs.find_overlaps(cells, cparams, Ovlaps)
@@ -84,30 +89,28 @@ if __name__ == '__main__':
             #cell extension
             if cparams_[4*num+3] > 0:
                 #Contract
-                print('c')
+                print("c")
                 cparams[4*num:(4*num+4)], Adh[num], c_flag = Adh_funcs.contraction(cells, \
                                                 num, cparams_, Ovlaps, Adh_, Adh0_, \
                                                 lamda, tau, dt, T_S_c, \
-                                                k_out_out, k_in_out, k_in_in, k_s, a_min)
+                                                E_const, k_s, a_min)                              
 
                 #Old bonds detach
-                print("detach")
-                if cparams_[4*num+3] == 2:
+                if cparams_[4*num+3] > 1:
                     #first phase
                     Adh[num], Adh0[num], cAdh0[num], cp0[num] = Adh_funcs.mature(cells[3*num:(3*num+3)],
-                                        Adh_[num], Adh0_[num], cAdh0_[num], cp0_[num],
+                                        Adh[num], Adh0[num], cAdh0[num], cp0[num],
                                         k_m, fThreshold, dt, rng)
-                elif cparams_[4*num+3] > 2:
                     #detach
                     Adh[num], Adh0[num], cAdh0[num], cp0[num] = Adh_funcs.detach(cells[3*num:(3*num+3)],
-                                        cparams_[4*num:4*num+4], cAdh0_[num], cp0_[num],
-                                        Adh_[num], Adh0_[num],
-                                        k_b, k_f, alpha, a, dt, rng)
+                                        cparams[4*num:4*num+4], cAdh0[num], cp0[num],
+                                        Adh[num], Adh0[num],
+                                        k_b, k_f, alpha, a, dt, rng)                    
 
-                print("new")
-                Adh0[num], Adh[num], cAdh0[num], cp0[num] = Adh_funcs.one_cell_random_adh(a, b, cells,
-                                        num, cparams_, Adh_, Adh0_, cAdh0_, cp0_, Nadh,
-                                       0.5*k_plus, dt)
+                #New adhesions at a smaller rate
+                Adh0[num], Adh[num], cAdh0[num], cp0[num] = Adh_funcs.one_cell_random_adh(cells,
+                                        num, cparams, Adh, Adh0, cAdh0, cp0, Nadh,
+                                       k_plus, dt, 0, rng)
 
                 with open("distance_data.txt", "a+") as f:
                     f.write("{}\t{}\t{}\t{}\n".format(cells[0], cells[1], t, "c"))
@@ -116,64 +119,48 @@ if __name__ == '__main__':
                 #Protrusion
                 print('p')
                 cells[3*num:(3*num+3)], cparams[4*num:(4*num+4)], \
-                Adh[num], p_flag = Adh_funcs.protrusion(cells, num, Adh_, Adh0_, cparams_, Ovlaps,
-                            lamda, tau, a, a_min, k_out_out, k_in_out, k_in_in, k_s, T_S_p)
+                p_flag = Adh_funcs.protrusion(cells, num, Adh_, Adh0_, cparams_, Ovlaps,
+                            dt, tau, a, a_min, E_const, k_s, T_S_p)
 
-                #Old bonds detach -> New bonds form
-                print("detach")
-                Adh[num], Adh0[num], cAdh0[num], cp0[num]= Adh_funcs.detach(cells[3*num:(3*num+3)],
-                                    cparams_[4*num:4*num+4], cAdh0_[num], cp0_[num],
-                                    Adh_[num], Adh0_[num],
-                                    k_b, k_f, alpha, a, dt, rng)
-
-                #New adhesions at a smaller rate
-                print("new")
+                #New bonds form
                 if p_flag:
-                    Adh0[num], Adh[num], cAdh0[num], cp0[num] = Adh_funcs.one_cell_random_adh(a, b, cells,
-                                        num, cparams_, Adh_, Adh0_, cAdh0_, cp0_, Nadh,
-                                        2*k_plus, dt)
+                    Adh0[num], Adh[num], cAdh0[num], cp0[num] = Adh_funcs.one_cell_random_adh(cells,
+                                        num, cparams, Adh, Adh0, cAdh0, cp0, Nadh,
+                                        10*k_plus, dt, 1, rng)
 
                 with open("distance_data.txt", "a+") as f:
                     f.write("{}\t{}\t{}\t{}\n".format(cells[0], cells[1], t, "p"))
 
         #minimize energy
         args = (cparams, Ovlaps, Adh, Adh0,
-                k_s, k_out_out, k_in_out, k_in_in)
+                k_s, E_const)
         cells_ = cells.copy()
-        bounds = []
-        eps = 1e-8
-        for i in range(Num):
-            ub = np.max((cells[3*i]-cparams[4*i]*np.cos(cparams[4*i+2]-eps),
-                           cells[3*i]+cparams[4*i]*np.cos(cparams[4*i+2])+eps))
-            lb = np.min((cells[3*i]-cparams[4*i+1]*np.cos(cparams[4*i+2]-eps),
-                           cells[3*i]+cparams[4*i+1]*np.cos(cparams[4*i+2])+eps))
-            bounds.append((lb, ub))
-            ub = np.max((cells[3*i+1]-cparams[4*i]*np.cos(cparams[4*i+2]-eps),
-                           cells[3*i+1]+cparams[4*i]*np.cos(cparams[4*i+2])+eps))
-            lb = np.min((cells[3*i+1]-cparams[4*i+1]*np.cos(cparams[4*i+2]-eps),
-                           cells[3*i+1]+cparams[4*i+1]*np.cos(cparams[4*i+2])+eps))
-            bounds.append((lb, ub))
-            bounds.append((0, 2*np.pi))
-        bounds = tuple(bounds)
 
-        print(energy.total_energy(cells, cparams, Ovlaps, Adh, Adh0,
-                k_s, k_out_out, k_in_out, k_in_in))
+        #plot_cells.plot_ellipses(cells, cparams, Adh, Adh0, a, b, 2*t)
+        print("Energy (before): ", energy.total_energy(cells, cparams, Ovlaps, Adh, Adh0,
+                k_s, E_const))
+               
         soln = minimize(fun=energy.total_energy, x0=cells, args=args, jac=energy.total_energy_gradient,
-        options={"maxfun" : 10**5, "maxiter" : 10**5}, method="L-BFGS-B")
-        print(soln["success"])
+        options={"maxiter" : 10**5}, method="L-BFGS-B")
+        #soln = minimize(fun=energy.total_energy, x0=cells, args=args,
+        #options={"maxiter" : 10**5}, method="Nelder-Mead")
+        print("Convergence: ", soln["success"])
+        if soln["success"] == False:
+            print(soln["message"])
+            #os.system("say "+soln["message"])
         cells = soln.x
-        print(energy.total_energy(cells, cparams, Ovlaps, Adh, Adh0,
-                k_s, k_out_out, k_in_out, k_in_in))
+        print("Energy (after): ", energy.total_energy(cells, cparams, Ovlaps, Adh, Adh0,
+                k_s, E_const))    
 
         #rotate and shift the adhesions
         cells, cparams, Adh = Adh_funcs.rotation_and_shift(cells, cells_,
-                                cparams, Adh)
+                                cparams, Adh)             
 
     # Save the data
-    #with open("data.npy", "wb") as f:
-    #    np.save(f, CELLS)
-    #    np.save(f, CPARAMS)
-    #    np.save(f, ADH)
-    #    np.save(f, ADH0)
-    #    np.save(f, CADH0)
-    #    np.save(f, CP0)
+    with open("data.npy", "wb") as f:
+        np.save(f, CELLS)
+        np.save(f, CPARAMS)
+        np.save(f, ADH)
+        np.save(f, ADH0)
+        np.save(f, CADH0)
+        np.save(f, CP0)
